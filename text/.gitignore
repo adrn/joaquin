@@ -2,4 +2,6 @@
 *.aux
 *.dvi
 *.log
+*.out
 *.pdf
+aastex631

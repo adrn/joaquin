@@ -7,18 +7,11 @@
 % - outline intro
 % - write method
 
-\documentclass[12pt]{article}
+\documentclass[modern]{aastex631}
 \usepackage[utf8]{inputenc}
-\usepackage{xcolor}
 \usepackage{amsmath, amsfonts}
 
 % typography
-\makeatletter
-\renewcommand\section{\@startsection {section}{1}{\z@}%
-  {-3.25ex \@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\raggedright\normalfont\large\bfseries}}
-\makeatother
 \setlength{\topmargin}{-0.50in}
 \setlength{\headsep}{4ex}
 \setlength{\textheight}{9.30in}
@@ -30,8 +23,6 @@
 \setlength{\textfloatsep}{1ex}
 \setlength{\floatsep}{1ex}
 \frenchspacing\sloppy\sloppypar\raggedbottom
-\pagestyle{myheadings}
-\markright{\textcolor{gray}{\textsf{\upshape Transfer regression}}}
 
 % text shih
 \newcommand{\acronym}[1]{{\small{#1}}}
@@ -45,20 +36,33 @@
 % math shih
 \newcommand{\given}{\,|\,}
 
-\begin{document}\thispagestyle{empty}
+\begin{document}
 
-\section*{\joaquin{}: Simple data-driven spectrophotometric distances for \APOGEE{} stars, trained on \ESA{} \Gaia{} data}
+\title{\joaquin{}: Simple data-driven spectrophotometric distances for \APOGEE{} stars, trained on \ESA{} \Gaia{} data}
 
-\noindent
-AMPW, DWH, ACE, HWR, others
+\author{AMPW}
+\affil{Flatiron}
 
-\paragraph{abstract:}
+\author{DWH}
+\affil{Flatiron}
+\affil{MPIA}
+
+\author{ACE}
+\affil{MIT}
+
+\author{HWR}
+\affil{MPIA}
+
+\author{others}
+\affil{elsewhere}
+
+\begin{abstract}
 The \ESA{} \Gaia{} Mission has delivered an enormous amount of nearly
 model-independent, geometric stellar distance information in the form
 of parallax measurements.
-Current stellar spectroscopic and photometric surveys deliver very
-high signal-to-noise information about stars to distances way outside
-the volume in which the parallaxes are precise.
+Current stellar spectroscopic and photometric surveys deliver
+good information about stars much more distant than those for which
+parallaxes are precise.
 Here we use geometric, photometric, and spectral information on XXX
 stars from the \APOGEE{} Survey to learn a spectral prediction of
 parallax (or distance, or distance modulus) that is independent of
@@ -78,9 +82,26 @@ We show the results of validation tests using ZZZ and WWW.
 We find that the distances are not biased by more than VVV.
 Because the model does not make any use of stellar models at any
 stage, these distances are effectively purely geometric in origin.
+\end{abstract}
 
-\section{Introduction}
+\keywords{foo --- bar}
+
+\section{Introduction}\label{sec:intro}
 
 Hello World
+
+\section{Model assumptions and requirements}
+
+\section{Data and pre-processing}
+
+\section{Method}
+
+\section{Results and Validation}
+
+\section{Discussion}
+
+\begin{acknowledgements}
+It is a pleasure to thank Soledad Villar (JHU) for valuable input.
+\end{acknowledgements}
 
 \end{document}
