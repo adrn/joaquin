@@ -1,19 +1,9 @@
-import jax
-import jax.numpy as jnp
+"""
+TODO: change API so Joaquin takes "stars"
+"""
+
 import numpy as np
 from scipy.optimize import minimize
-
-
-def ln_likelihood(X, y, ivar, parallax_zpt, L2_ivar, beta):
-    y = y + parallax_zpt
-    model_ln_plx = jnp.dot(X, beta)
-    resid = y - jnp.exp(model_ln_plx)
-    return -0.5 * jnp.sum(resid**2 * ivar)
-
-
-def neg_ln_posterior(X, y, ivar, parallax_zpt, L2_ivar, beta, L2_slice):
-    ll = ln_likelihood(X, y, ivar, parallax_zpt, L2_ivar, beta)
-    return - (ll - 0.5 * L2_ivar * jnp.sum(beta[L2_slice] ** 2)) / len(y)
 
 
 class Joaquin:
@@ -52,7 +42,7 @@ class Joaquin:
             if key in self.frozen:
                 par_dict[key] = self.frozen[key]
             else:
-                par_dict[key] = jnp.array(par_list[i:i+par_len])
+                par_dict[key] = np.array(par_list[i:i+par_len])
                 if len(par_dict[key]) == 1:  # HORRIBLE
                     par_dict[key] = par_dict[key][0]
 
@@ -60,8 +50,12 @@ class Joaquin:
 
         return par_dict
 
-#     def pack_pars(self, par_dict):
-#         pass
+    def pack_pars(self, par_dict):
+        parvec = []
+        for i, k in enumerate(self._params):
+            if k not in self.frozen:
+                parvec.append(par_dict[k])
+        return np.concatenate(parvec)
 
     def init_beta(self, parallax_zpt=None, L2_ivar=None):
         parallax_zpt = self.frozen.get('parallax_zpt', parallax_zpt)
@@ -78,7 +72,7 @@ class Joaquin:
         y_ivar = self.y_ivar[plx_mask]
 
         ln_plx_ivar = y**2 * y_ivar
-        ln_y = jnp.log(y)
+        ln_y = np.log(y)
 
         XT_Cinv = X.T * ln_plx_ivar
         XT_Cinv_X = np.dot(XT_Cinv, X)
@@ -87,36 +81,57 @@ class Joaquin:
         beta = np.linalg.solve(XT_Cinv_X, np.dot(XT_Cinv, ln_y))
         return beta
 
+    def chi(self, parallax_zpt, L2_ivar, beta):
+        y = self.y + parallax_zpt
+        model_ln_plx = np.dot(self.X, beta)
+        model_y = np.exp(model_ln_plx)
+        resid = y - model_y
+        return resid * np.sqrt(self.y_ivar)
+
+    def ln_likelihood(self, parallax_zpt, L2_ivar, beta):
+        y = self.y + parallax_zpt
+        model_ln_plx = np.dot(self.X, beta)
+        model_y = np.exp(model_ln_plx)
+        resid = y - model_y
+
+        ll = -0.5 * np.sum(resid**2 * self.y_ivar)
+        ll_grad = np.dot(self.X.T * model_y,  # broadcasting trickery
+                         self.y_ivar * resid)
+
+        return ll, ll_grad
+
+    def ln_prior(self, parallax_zpt, L2_ivar, beta):
+        lp = - 0.5 * L2_ivar * np.sum(beta[self.L2_slice] ** 2)
+        lp_grad = np.zeros_like(beta)
+        lp_grad[self.L2_slice] = - L2_ivar * beta[self.L2_slice]
+        return lp, lp_grad
+
+    def neg_ln_posterior(self, parallax_zpt, L2_ivar, beta):
+        ll, ll_grad = self.ln_likelihood(parallax_zpt, L2_ivar, beta)
+        lp, lp_grad = self.ln_prior(parallax_zpt, L2_ivar, beta)
+        return - (ll + lp), - (ll_grad + lp_grad)
+
     def __call__(self, p):
-        """Computes the negative ln posterior"""
         par_dict = self.unpack_pars(p)
-        return neg_ln_posterior(
-            self.X, self.y, self.y_ivar,
-            par_dict['parallax_zpt'],
-            par_dict['L2_ivar'],
-            par_dict['beta'],
-            self.L2_slice)
+        return self.neg_ln_posterior(**par_dict)
 
-    def optimize(self, x0=None, **kwargs):
-        obj = jax.value_and_grad(neg_ln_posterior, argnums=[3, 4, 5])
+    def optimize(self, init=None, **kwargs):
+        if init is None:
+            init = {}
 
-        def wrapper(p):  # noqa
-            par_dict = self.unpack_pars(p)
-            val, grads = obj(self.X, self.y, self.y_ivar,
-                             par_dict['parallax_zpt'],
-                             par_dict['L2_ivar'],
-                             par_dict['beta'],
-                             self.L2_slice)
-            return val, jnp.concatenate([g.reshape(-1) for g in grads])
+        init.setdefault('parallax_zpt', 0.)
+        init.setdefault('L2_ivar', 1.)
 
-        if x0 is None:
-            x0 = [0, 1.]
-            beta0 = self.init_beta(*x0)
-            x0 = x0 + list(beta0)
+        if 'beta' not in init:
+            init['beta'] = self.init_beta(**init)
 
-        elif len(x0) == 2:
-            beta0 = self.init_beta(*x0)
-            x0 = list(x0) + list(beta0)
+        x0 = self.pack_pars(init)
 
-        res = minimize(wrapper, x0=x0, method='BFGS', jac=True)
+        res = minimize(
+            self,
+            x0=x0,
+            method='L-BFGS-B',
+            jac=True,
+            options={'maxfun': 128})
+
         return res

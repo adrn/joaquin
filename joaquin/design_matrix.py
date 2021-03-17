@@ -38,7 +38,8 @@ class DesignMatrix:
         self._y_ivar = Xyivar[2]
 
         self._good_stars_mask = np.ones(len(stars), dtype=bool)
-        self._good_stars_mask[failures] = False
+        if len(failures) > 0:
+            self._good_stars_mask[failures] = False
         self.stars = stars[self._good_stars_mask]
 
     def _make_Xy(self, stars, progress=True):
