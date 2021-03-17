@@ -5,30 +5,36 @@ TODO: change API so Joaquin takes "stars"
 import numpy as np
 from scipy.optimize import minimize
 
+from .design_matrix import DesignMatrix
+from .logger import logger
+
 
 class Joaquin:
 
-    def __init__(self, X, y, y_ivar, frozen=None, L2_slice=None):
-        assert X.shape[0] == len(y)
-        assert len(y) == len(y_ivar)
+    def __init__(self, stars, terms=['lsf', 'phot', 'spec'],
+                 frozen=None, DM_kwargs=None):
+        # TODO
+        if DM_kwargs is None:
+            DM_kwargs = dict()
+        self.dm = DesignMatrix(stars, **DM_kwargs)
+        self.X, self.y, self.y_ivar = self.dm.get_sub_Xy(terms)
 
-        self._params = {}
+        # Currently, stores parameter names and shapes
+        self._param_info = {}
 
         # duh
-        self._params['parallax_zpt'] = 1
+        self._param_info['parallax_zpt'] = 1
 
-        # either the inv-var of the prior on the spectral components in beta
-        self._params['L2_ivar'] = 1
+        # the inv-var of the prior on the spectral components in beta
+        self._param_info['L2_ivar'] = 1
 
-        # linear coefficients
-        self._params['beta'] = X.shape[1]
+        # linear coefficients (in the exp argument)
+        self._param_info['beta'] = self.X.shape[1]
 
-        self.X = X
-        self.y = y
-        self.y_ivar = y_ivar
-
-        if L2_slice is None:
-            L2_slice = np.ones_like(y, dtype=int)
+        if 'spec' in terms:
+            L2_slice = self.dm.idx_map['spec']
+        else:
+            L2_slice = np.ones(self.X.shape[1], dtype=bool)
         self.L2_slice = L2_slice
 
         if frozen is None:
@@ -38,7 +44,7 @@ class Joaquin:
     def unpack_pars(self, par_list):
         i = 0
         par_dict = {}
-        for key, par_len in self._params.items():
+        for key, par_len in self._param_info.items():
             if key in self.frozen:
                 par_dict[key] = self.frozen[key]
             else:
@@ -52,7 +58,7 @@ class Joaquin:
 
     def pack_pars(self, par_dict):
         parvec = []
-        for i, k in enumerate(self._params):
+        for i, k in enumerate(self._param_info):
             if k not in self.frozen:
                 parvec.append(par_dict[k])
         return np.concatenate(parvec)
@@ -109,13 +115,20 @@ class Joaquin:
     def neg_ln_posterior(self, parallax_zpt, L2_ivar, beta):
         ll, ll_grad = self.ln_likelihood(parallax_zpt, L2_ivar, beta)
         lp, lp_grad = self.ln_prior(parallax_zpt, L2_ivar, beta)
+        logger.log(0, f'objective function evaluation: ll={ll}, lp={lp}')
         return - (ll + lp), - (ll_grad + lp_grad)
 
     def __call__(self, p):
         par_dict = self.unpack_pars(p)
         return self.neg_ln_posterior(**par_dict)
 
-    def optimize(self, init=None, **kwargs):
+    def optimize(self, init=None, **minimize_kwargs):
+        """
+        To set the maximum number of function evaluations, pass:
+
+            options={'maxfun': ...}
+
+        """
         if init is None:
             init = {}
 
@@ -127,11 +140,14 @@ class Joaquin:
 
         x0 = self.pack_pars(init)
 
+        minimize_kwargs.setdefault('method', 'L-BFGS-B')
+        if minimize_kwargs['method'] == 'L-BFGS-B':
+            minimize_kwargs.setdefault('options', {'maxfun': 1024})
+
         res = minimize(
             self,
             x0=x0,
-            method='L-BFGS-B',
             jac=True,
-            options={'maxfun': 128})
+            **minimize_kwargs)
 
         return res

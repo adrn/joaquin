@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 
 from .features import get_lsf_features, get_phot_features, get_spec_features
 from .apogee_data import get_aspcapstar, get_lsf
+from .logger import logger
 
 
 class DesignMatrix:
@@ -23,12 +24,18 @@ class DesignMatrix:
         cache_file = this_cache_path / f'{name}.pkl'
 
         if not cache_file.exists() or overwrite:
+            logger.debug(
+                'Design matrix cache file not found, or being overwritten for '
+                f'{len(stars)} stars')
             Xyivar, idx_map, failures = self._make_Xy(stars, progress=progress)
 
             with open(cache_file, 'wb') as f:
                 pickle.dump((Xyivar, idx_map, failures), f)
 
         else:
+            logger.debug(
+                'Design matrix cache file found: loading pre-cached design '
+                f'matrix from {str(cache_file)}')
             with open(cache_file, 'rb') as f:
                 (Xyivar, idx_map, failures) = pickle.load(f)
 
@@ -39,6 +46,8 @@ class DesignMatrix:
 
         self._good_stars_mask = np.ones(len(stars), dtype=bool)
         if len(failures) > 0:
+            logger.debug(
+                f'failed to get spectral features for {len(failures)} stars')
             self._good_stars_mask[failures] = False
         self.stars = stars[self._good_stars_mask]
 
@@ -59,8 +68,7 @@ class DesignMatrix:
             try:
                 spec_f = get_spec_features(star_hdul)
             except:  # noqa
-                # TODO: turn into logging
-                # print(f"failed for {i}")
+                logger.log(0, f"failed to get spectrum features for star {i}")
                 del_idx.append(i)
                 star_hdul.close()
                 lsf_hdul.close()
@@ -89,7 +97,7 @@ class DesignMatrix:
             lsf_hdul.close()
 
         y = stars['GAIAEDR3_PARALLAX']
-        y_ivar = 1 / stars['GAIAEDR3_PARALLAX_ERROR']**2
+        y_ivar = 1 / stars['GAIAEDR3_PARALLAX_ERROR'] ** 2
 
         X = np.delete(X, del_idx, axis=0)
         y = np.delete(y, del_idx)
