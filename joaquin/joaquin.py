@@ -17,7 +17,7 @@ class Joaquin:
         if DM_kwargs is None:
             DM_kwargs = dict()
         self.dm = DesignMatrix(stars, **DM_kwargs)
-        self.X, self.y, self.y_ivar = self.dm.get_sub_Xy(terms)
+        self.X, self.y, self.y_ivar, self.idx_map = self.dm.get_Xy(terms)
 
         # Currently, stores parameter names and shapes
         self._param_info = {}
@@ -32,7 +32,7 @@ class Joaquin:
         self._param_info['beta'] = self.X.shape[1]
 
         if 'spec' in terms:
-            L2_slice = self.dm.idx_map['spec']
+            L2_slice = self.idx_map['spec']
         else:
             L2_slice = np.ones(self.X.shape[1], dtype=bool)
         self.L2_slice = L2_slice

@@ -12,7 +12,8 @@ from .logger import logger
 
 class DesignMatrix:
 
-    def __init__(self, stars, overwrite=False, progress=True, cache_path=None):
+    def __init__(self, stars, overwrite=False, progress=True, cache_path=None,
+                 spec_mask_thresh=0.1):
         if cache_path is None:
             cache_path = 'cache'
         cache_path = pathlib.Path(cache_path)
@@ -27,22 +28,26 @@ class DesignMatrix:
             logger.debug(
                 'Design matrix cache file not found, or being overwritten for '
                 f'{len(stars)} stars')
-            Xyivar, idx_map, failures = self._make_Xy(stars, progress=progress)
+            Xyivar, idx_map, failures, spec_mask = self._make_Xy(
+                stars, progress=progress)
 
             with open(cache_file, 'wb') as f:
-                pickle.dump((Xyivar, idx_map, failures), f)
+                pickle.dump((Xyivar, idx_map, failures, spec_mask), f)
 
         else:
             logger.debug(
                 'Design matrix cache file found: loading pre-cached design '
                 f'matrix from {str(cache_file)}')
             with open(cache_file, 'rb') as f:
-                (Xyivar, idx_map, failures) = pickle.load(f)
+                (Xyivar, idx_map, failures, spec_mask) = pickle.load(f)
 
-        self.idx_map = idx_map
         self._X = Xyivar[0]
         self._y = Xyivar[1]
         self._y_ivar = Xyivar[2]
+        self._idx_map = idx_map
+
+        self._spec_good_mask = spec_mask < spec_mask_thresh
+        self._idx_map['spec'] = self._idx_map['spec'][self._spec_good_mask]
 
         self._good_stars_mask = np.ones(len(stars), dtype=bool)
         if len(failures) > 0:
@@ -59,6 +64,7 @@ class DesignMatrix:
 
         X = None
         del_idx = []
+        spec_masks = []
         for i, star in enumerate(iter_(stars)):
             star_hdul = get_aspcapstar(star)
             lsf_hdul = get_lsf(star)
@@ -66,7 +72,7 @@ class DesignMatrix:
             lsf_f = get_lsf_features(lsf_hdul)
             phot_f = get_phot_features(star)
             try:
-                spec_f = get_spec_features(star_hdul)
+                spec_f, mask = get_spec_features(star_hdul)
             except:  # noqa
                 logger.log(0, f"failed to get spectrum features for star {i}")
                 del_idx.append(i)
@@ -92,6 +98,7 @@ class DesignMatrix:
                                      dtype=int)
 
             X[i] = np.concatenate((lsf_f, phot_f, spec_f))
+            spec_masks.append(mask)
 
             star_hdul.close()
             lsf_hdul.close()
@@ -103,17 +110,26 @@ class DesignMatrix:
         y = np.delete(y, del_idx)
         y_ivar = np.delete(y_ivar, del_idx)
 
+        all_spec_mask = np.sum(spec_masks, axis=0) / len(spec_masks)
+
         idx_map = {
             'lsf': lsf_idx,
             'phot': phot_idx,
             'spec': spec_idx
         }
 
-        return (X, y, y_ivar), idx_map, np.array(del_idx)
+        return (X, y, y_ivar), idx_map, np.array(del_idx), all_spec_mask
 
-    def get_sub_Xy(self, terms=['lsf', 'phot', 'spec']):
+    def get_Xy(self, terms=['lsf', 'phot', 'spec']):
         idx = []
+        new_idx_map = {}
+        start = 0
         for name in terms:
-            idx.append(self.idx_map[name])
+            idx.append(self._idx_map[name])
+
+            new_idx_map[name] = np.arange(start,
+                                          start + len(self._idx_map[name]))
+            start = start + len(self._idx_map[name])
+
         idx = np.concatenate(idx)
-        return self._X[:, idx], self._y, self._y_ivar
+        return self._X[:, idx], self._y, self._y_ivar, new_idx_map

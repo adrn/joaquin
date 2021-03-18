@@ -47,7 +47,10 @@ def get_spec_features(star_hdul):
     flux = star_hdul[1].data
     err = star_hdul[2].data
 
-    mask = (flux <= 0) | (err > (3 * np.median(err))) | (~np.isfinite(flux))
+    mask = ((flux <= 0) |
+            (err > (3 * np.median(err))) |  # MAGIC NUMBER
+            (err == 0) |
+            (~np.isfinite(flux)))
     ln_flux = np.full_like(flux, np.nan)
     ln_flux[~mask] = np.log(flux[~mask])
 
@@ -55,4 +58,4 @@ def get_spec_features(star_hdul):
                                 fcut=0.5 * 22500,
                                 bad_mask=mask)
 
-    return new_ln_flux
+    return new_ln_flux, mask

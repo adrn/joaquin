@@ -9,8 +9,8 @@ SAS_URL = "https://data.sdss.org/sas/"
 
 def get_aspcapstar(star, overwrite=False):
     filename = f"aspcapStar-{dr}-{star['APOGEE_ID']}.fits"
-    local_path = cache_path / 'aspcap' / filename
-    local_path.parent.mkdir(exist_ok=True)
+    local_path = cache_path / 'aspcap' / star['FIELD'].strip() / filename
+    local_path.parent.mkdir(exist_ok=True, parents=True)
 
     url = (SAS_URL +
            f"apogeework/apogee/spectro/aspcap/{dr}/{reduction}/" +
@@ -32,8 +32,8 @@ def get_lsf(star, overwrite=False):
         raise NotImplementedError()
 
     filename = f"a{sorp}StarLSF-{star['APOGEE_ID']}.fits"
-    local_path = cache_path / 'aspcap' / filename
-    local_path.parent.mkdir(exist_ok=True)
+    local_path = cache_path / 'aspcap' / star['FIELD'].strip() / filename
+    local_path.parent.mkdir(exist_ok=True, parents=True)
 
     url = (SAS_URL +
            f"apogeework/apogee/spectro/redux/{dr}/{stars_}/" +
