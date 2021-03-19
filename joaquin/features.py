@@ -1,15 +1,7 @@
 import numpy as np
 
 from .filters import nufft_lowpass
-
-
-default_phot_names = [
-    'GAIAEDR3_PHOT_G_MEAN_MAG',
-    'GAIAEDR3_PHOT_BP_MEAN_MAG',
-    'GAIAEDR3_PHOT_RP_MEAN_MAG',
-    'J', 'H', 'K',
-    'w1mpro', 'w2mpro', 'w3mpro', 'w4mpro'
-]
+from .config import phot_names
 
 
 def get_lsf_features(lsf_hdul):
@@ -29,10 +21,7 @@ def get_lsf_features(lsf_hdul):
     return np.array(vals)
 
 
-def get_phot_features(star, phot_names=None):
-    if phot_names is None:
-        phot_names = default_phot_names
-
+def get_phot_features(star):
     vals = []
     for name in phot_names:
         vals.append(star[name])

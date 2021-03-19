@@ -1,29 +1,18 @@
 from astropy.io import fits
 
-from .config import dr, reduction, stars_, cache_path
-from .data_helpers import download_file
+from .config import APOGEE_CACHE_PATH, dr
 
 
-SAS_URL = "https://data.sdss.org/sas/"
-
-
-def get_aspcapstar(star, overwrite=False):
+def get_aspcapstar(star):
     filename = f"aspcapStar-{dr}-{star['APOGEE_ID']}.fits"
-    local_path = cache_path / 'aspcap' / star['FIELD'].strip() / filename
-    local_path.parent.mkdir(exist_ok=True, parents=True)
-
-    url = (SAS_URL +
-           f"apogeework/apogee/spectro/aspcap/{dr}/{reduction}/" +
-           f"{star['TELESCOPE'].strip()}/" +
-           f"{star['FIELD'].strip()}/" +
-           filename)
-
-    download_file(url, local_path, overwrite=overwrite)
-
+    local_path = (APOGEE_CACHE_PATH /
+                  star['TELESCOPE'] /
+                  star['FIELD'].strip() /
+                  filename)
     return fits.open(local_path)
 
 
-def get_lsf(star, overwrite=False):
+def get_lsf(star):
     if star['TELESCOPE'] == 'apo25m':
         sorp = 'p'
     elif star['TELESCOPE'] == 'lco25m':
@@ -32,15 +21,9 @@ def get_lsf(star, overwrite=False):
         raise NotImplementedError()
 
     filename = f"a{sorp}StarLSF-{star['APOGEE_ID']}.fits"
-    local_path = cache_path / 'aspcap' / star['FIELD'].strip() / filename
-    local_path.parent.mkdir(exist_ok=True, parents=True)
-
-    url = (SAS_URL +
-           f"apogeework/apogee/spectro/redux/{dr}/{stars_}/" +
-           f"{star['TELESCOPE'].strip()}/" +
-           f"{star['FIELD'].strip()}/" +
-           filename)
-
-    download_file(url, local_path, overwrite=overwrite)
+    local_path = (APOGEE_CACHE_PATH /
+                  star['TELESCOPE'] /
+                  star['FIELD'].strip() /
+                  filename)
 
     return fits.open(local_path)
