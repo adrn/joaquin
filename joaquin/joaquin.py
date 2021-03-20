@@ -5,7 +5,7 @@ TODO: change API so Joaquin takes "stars"
 import numpy as np
 from scipy.optimize import minimize
 
-from .design_matrix import DesignMatrix
+from .design_matrix import JoaquinData
 from .logger import logger
 
 

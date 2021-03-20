@@ -1,13 +1,16 @@
 import numpy as np
 
 from .filters import nufft_lowpass
-from .config import phot_names
+from .config import phot_names, dr
 
 
 def get_lsf_features(lsf_hdul):
     """BAG O' HACKS"""
 
-    lsf = lsf_hdul[0].data[:, 7]  # Because: What other pixel would you choose?
+    if dr == 'dr17':
+        lsf = lsf_hdul[0].data[:, 7]  # MAGIC NUMBER
+    else:
+        lsf = lsf_hdul[1].data[7]  # MAGIC NUMBER
     pix = np.arange(len(lsf))
 
     locs = [500, 2500, 4000, 5600, 6600, 7900]

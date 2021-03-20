@@ -2,7 +2,12 @@ import os
 import pathlib
 
 dr = 'dr16'
+reduction = 'r12'
+
 # dr = 'dr17'  # TODO
+# reduction = '??'
+
+# Path to a /.../apogee folder
 APOGEE_CACHE_PATH = pathlib.Path(os.environ.get(
     "APOGEE_CACHE_PATH",
     pathlib.Path.home() / ".apogee")).expanduser().resolve()

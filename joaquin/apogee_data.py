@@ -1,6 +1,6 @@
 from astropy.io import fits
 
-from .config import APOGEE_CACHE_PATH, dr
+from .config import APOGEE_CACHE_PATH, dr, reduction
 
 
 phot_to_label = {
@@ -18,8 +18,9 @@ phot_to_label = {
 
 
 def get_aspcapstar(star):
-    filename = f"aspcapStar-{dr}-{star['APOGEE_ID']}.fits"
+    filename = f"aspcapStar-{reduction}-{star['APOGEE_ID']}.fits"
     local_path = (APOGEE_CACHE_PATH /
+                  dr /
                   star['TELESCOPE'] /
                   star['FIELD'].strip() /
                   filename)
@@ -36,6 +37,7 @@ def get_lsf(star):
 
     filename = f"a{sorp}StarLSF-{star['APOGEE_ID']}.fits"
     local_path = (APOGEE_CACHE_PATH /
+                  dr /
                   star['TELESCOPE'] /
                   star['FIELD'].strip() /
                   filename)
