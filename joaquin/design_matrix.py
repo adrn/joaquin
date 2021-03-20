@@ -105,10 +105,10 @@ class JoaquinData:
 
         self._spec_mask_thresh = spec_mask_thresh
         if spec_mask_vals is None:
-            spec_mask_vals = np.zeros(len(self._idx_map['spec']))
+            spec_mask_vals = np.zeros(len(self.idx_map['spec']))
         self._spec_mask_vals = np.array(spec_mask_vals)
 
-        self._spec_good_mask = self.spec_mask_vals < spec_mask_thresh
+        self._spec_good_mask = self._spec_mask_vals < spec_mask_thresh
         self.idx_map['spec'] = self.idx_map['spec'][self._spec_good_mask]
 
     @classmethod
@@ -127,24 +127,23 @@ class JoaquinData:
             logger.debug(
                 'Design matrix cache file not found, or being overwritten for '
                 f'{len(stars)} stars')
-            Xyivar, idx_map, failures, spec_mask = make_Xy(stars,
-                                                           progress=progress)
+            Xyivar, idx_map, spec_mask = make_Xy(stars, progress=progress)
 
             with open(cache_file, 'wb') as f:
-                pickle.dump((Xyivar, idx_map, failures, spec_mask), f)
+                pickle.dump((Xyivar, idx_map, spec_mask), f)
 
         else:
             logger.debug(
                 'Design matrix cache file found: loading pre-cached design '
                 f'matrix from {str(cache_file)}')
             with open(cache_file, 'rb') as f:
-                (Xyivar, idx_map, failures, spec_mask) = pickle.load(f)
+                (Xyivar, idx_map, spec_mask) = pickle.load(f)
 
-        good_stars_mask = np.ones(len(stars), dtype=bool)
-        if len(failures) > 0:
+        good_stars_mask = np.all(np.isfinite(Xyivar[0]), axis=1)
+        if not np.all(good_stars_mask):
+            nfailures = len(good_stars_mask) - good_stars_mask.sum()
             logger.debug(
-                f'failed to get spectral features for {len(failures)} stars')
-            good_stars_mask[failures] = False
+                f'failed to get spectral features for {nfailures} stars')
 
         return cls(
             X=Xyivar[0],
