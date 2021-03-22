@@ -52,6 +52,6 @@ def get_spec_features(star_hdul, lowpass=True):
                                     bad_mask=mask)
     else:
         new_ln_flux = ln_flux
-        new_ln_flux[mask] = 1.
+        new_ln_flux[mask] = 0.
 
     return new_ln_flux, mask

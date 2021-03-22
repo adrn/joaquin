@@ -24,7 +24,7 @@ def make_Xy(stars, progress=True, lowpass=True):
 
             lsf_f = get_lsf_features(lsf_hdul)
             phot_f = get_phot_features(star)
-            spec_f, mask = get_spec_features(star_hdul)
+            spec_f, mask = get_spec_features(star_hdul, lowpass=lowpass)
 
         except Exception:  # noqa
             continue
