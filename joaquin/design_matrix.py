@@ -71,7 +71,7 @@ def make_Xy(stars, progress=True):
         last = lsf_idx[-1] + 1
         spec_idx = np.arange(last, last + Nspec, dtype=int)
 
-        X[i] = np.concatenate((lsf_f, phot_f, spec_f))
+        X[i] = np.concatenate((phot_f, lsf_f, spec_f))
         spec_masks[i] = spec_mask
 
         star_hdul.close()
@@ -150,9 +150,13 @@ class JoaquinData:
             y=Xyivar[1],
             y_ivar=Xyivar[2],
             idx_map=idx_map,
+            spec_mask_vals=spec_mask,
             **kwargs), good_stars_mask
 
-    def get_sub_Xy(self, terms=['lsf', 'phot', 'spec']):
+    def get_sub_Xy(self, terms=['phot', 'lsf', 'spec']):
+        if isinstance(terms, str):
+            terms = [terms]
+
         idx = []
         new_idx_map = {}
         start = 0
@@ -169,5 +173,4 @@ class JoaquinData:
     def __getitem__(self, slice_):
         cls = self.__class__
         return cls(self.X[slice_], self.y[slice_], self.y_ivar[slice_],
-                   self.idx_map, spec_mask_vals=self._spec_mask_vals,
-                   spec_mask_thresh=self._spec_mask_thresh)
+                   self.idx_map)

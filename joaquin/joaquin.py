@@ -5,19 +5,14 @@ TODO: change API so Joaquin takes "stars"
 import numpy as np
 from scipy.optimize import minimize
 
-from .design_matrix import JoaquinData
 from .logger import logger
 
 
 class Joaquin:
 
-    def __init__(self, stars, terms=['lsf', 'phot', 'spec'],
-                 frozen=None, DM_kwargs=None):
-        # TODO
-        if DM_kwargs is None:
-            DM_kwargs = dict()
-        self.dm = DesignMatrix(stars, **DM_kwargs)
-        self.X, self.y, self.y_ivar, self.idx_map = self.dm.get_Xy(terms)
+    def __init__(self, data, terms=['phot', 'lsf', 'spec'], frozen=None):
+        self.data = data
+        self.X, self.y, self.y_ivar, self.idx_map = self.data.get_sub_Xy(terms)
 
         # Currently, stores parameter names and shapes
         self._param_info = {}
