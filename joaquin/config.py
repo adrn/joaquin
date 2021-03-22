@@ -7,6 +7,9 @@ reduction = 'r12'
 # dr = 'dr17'  # TODO
 # reduction = '??'
 
+# For cross-validation:
+Kfold_K = 8
+
 # Path to a /.../apogee folder
 APOGEE_CACHE_PATH = pathlib.Path(os.environ.get(
     "APOGEE_CACHE_PATH",

@@ -31,7 +31,7 @@ def get_phot_features(star):
     return np.array(vals)
 
 
-def get_spec_features(star_hdul):
+def get_spec_features(star_hdul, lowpass=True):
     pix = np.arange(star_hdul[1].header['NAXIS1'])
     wvln = 10 ** (star_hdul[1].header['CRVAL1'] +
                   pix * star_hdul[1].header['CDELT1'])
@@ -46,8 +46,12 @@ def get_spec_features(star_hdul):
     ln_flux = np.full_like(flux, np.nan)
     ln_flux[~mask] = np.log(flux[~mask])
 
-    new_ln_flux = nufft_lowpass(ln_wvln, ln_flux,
-                                fcut=0.5 * 22500,
-                                bad_mask=mask)
+    if lowpass:
+        new_ln_flux = nufft_lowpass(ln_wvln, ln_flux,
+                                    fcut=0.5 * 22500,
+                                    bad_mask=mask)
+    else:
+        new_ln_flux = ln_flux
+        new_ln_flux[mask] = 1.
 
     return new_ln_flux, mask

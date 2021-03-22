@@ -96,8 +96,8 @@ class Joaquin:
         resid = y - model_y
 
         ll = -0.5 * np.sum(resid**2 * self.y_ivar)
-        ll_grad = np.dot(self.X.T * model_y,  # broadcasting trickery
-                         self.y_ivar * resid)
+        ll_grad = np.dot(self.X.T,
+                         model_y * self.y_ivar * resid)
 
         return ll, ll_grad
 

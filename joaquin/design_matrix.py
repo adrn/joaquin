@@ -10,7 +10,7 @@ from .apogee_data import get_aspcapstar, get_lsf
 from .logger import logger
 
 
-def make_Xy(stars, progress=True):
+def make_Xy(stars, progress=True, lowpass=True):
     if progress:
         iter_ = tqdm
     else:
@@ -55,7 +55,7 @@ def make_Xy(stars, progress=True):
         lsf_f = get_lsf_features(lsf_hdul)
         phot_f = get_phot_features(star)
         try:
-            spec_f, spec_mask = get_spec_features(star_hdul)
+            spec_f, spec_mask = get_spec_features(star_hdul, lowpass=lowpass)
         except:  # noqa
             logger.log(0, f"failed to get spectrum features for star {i}")
             continue
@@ -94,7 +94,7 @@ def make_Xy(stars, progress=True):
 class JoaquinData:
 
     def __init__(self, X, y, y_ivar, idx_map, spec_mask_vals=None,
-                 spec_mask_thresh=0.1):
+                 spec_mask_thresh=None):
 
         self.X = np.array(X)
         self.y = np.array(y)
@@ -108,12 +108,16 @@ class JoaquinData:
             spec_mask_vals = np.zeros(len(self.idx_map['spec']))
         self._spec_mask_vals = np.array(spec_mask_vals)
 
-        self._spec_good_mask = self._spec_mask_vals < spec_mask_thresh
+        if spec_mask_thresh is not None:
+            self._spec_good_mask = self._spec_mask_vals < spec_mask_thresh
+        else:
+            self._spec_good_mask = np.ones(len(self._spec_mask_vals),
+                                           dtype=bool)
         self.idx_map['spec'] = self.idx_map['spec'][self._spec_good_mask]
 
     @classmethod
-    def from_stars(cls, stars, cache_path, overwrite=False, progress=True,
-                   **kwargs):
+    def from_stars(cls, stars, cache_path, lowpass=True, overwrite=False,
+                   progress=True, **kwargs):
 
         cache_path = pathlib.Path(cache_path)
         this_cache_path = (cache_path / 'designmatrix').resolve()
@@ -127,7 +131,8 @@ class JoaquinData:
             logger.debug(
                 'Design matrix cache file not found, or being overwritten for '
                 f'{len(stars)} stars')
-            Xyivar, idx_map, spec_mask = make_Xy(stars, progress=progress)
+            Xyivar, idx_map, spec_mask = make_Xy(stars, progress=progress,
+                                                 lowpass=lowpass)
 
             with open(cache_file, 'wb') as f:
                 pickle.dump((Xyivar, idx_map, spec_mask), f)
