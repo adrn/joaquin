@@ -116,33 +116,38 @@ class JoaquinData:
         self.idx_map['spec'] = self.idx_map['spec'][self._spec_good_mask]
 
     @classmethod
-    def from_stars(cls, stars, cache_path, lowpass=True, overwrite=False,
+    def from_stars(cls, stars, cache_path=None, lowpass=True, overwrite=False,
                    progress=True, **kwargs):
 
-        cache_path = pathlib.Path(cache_path)
-        this_cache_path = (cache_path / 'designmatrix').resolve()
-        this_cache_path.mkdir(exist_ok=True, parents=True)
+        if cache_path is not None:
+            cache_path = pathlib.Path(cache_path)
+            this_cache_path = (cache_path / 'designmatrix').resolve()
+            this_cache_path.mkdir(exist_ok=True, parents=True)
 
-        name = hashlib.sha256(
-            (','.join(stars['APOGEE_ID'])).encode('utf-8')).hexdigest()
-        cache_file = this_cache_path / f'{name}.pkl'
+            name = hashlib.sha256(
+                (','.join(stars['APOGEE_ID'])).encode('utf-8')).hexdigest()
+            cache_file = this_cache_path / f'{name}.pkl'
 
-        if not cache_file.exists() or overwrite:
-            logger.debug(
-                'Design matrix cache file not found, or being overwritten for '
-                f'{len(stars)} stars')
-            Xyivar, idx_map, spec_mask = make_Xy(stars, progress=progress,
-                                                 lowpass=lowpass)
+            if not cache_file.exists() or overwrite:
+                logger.debug(
+                    'Design matrix cache file not found, or being overwritten '
+                    f'for {len(stars)} stars')
+                Xyivar, idx_map, spec_mask = make_Xy(stars, progress=progress,
+                                                     lowpass=lowpass)
 
-            with open(cache_file, 'wb') as f:
-                pickle.dump((Xyivar, idx_map, spec_mask), f)
+                with open(cache_file, 'wb') as f:
+                    pickle.dump((Xyivar, idx_map, spec_mask), f)
+
+            else:
+                logger.debug(
+                    'Design matrix cache file found: loading pre-cached design '
+                    f'matrix from {str(cache_file)}')
+                with open(cache_file, 'rb') as f:
+                    (Xyivar, idx_map, spec_mask) = pickle.load(f)
 
         else:
-            logger.debug(
-                'Design matrix cache file found: loading pre-cached design '
-                f'matrix from {str(cache_file)}')
-            with open(cache_file, 'rb') as f:
-                (Xyivar, idx_map, spec_mask) = pickle.load(f)
+            Xyivar, idx_map, spec_mask = make_Xy(stars, progress=progress,
+                                                 lowpass=lowpass)
 
         good_stars_mask = np.all(np.isfinite(Xyivar[0]), axis=1)
         if not np.all(good_stars_mask):
