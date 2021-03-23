@@ -1,21 +1,16 @@
 import numpy as np
 
 from .filters import nufft_lowpass
-
-
-default_phot_names = [
-    'GAIAEDR3_PHOT_G_MEAN_MAG',
-    'GAIAEDR3_PHOT_BP_MEAN_MAG',
-    'GAIAEDR3_PHOT_RP_MEAN_MAG',
-    'J', 'H', 'K',
-    'w1mpro', 'w2mpro', 'w3mpro', 'w4mpro'
-]
+from .config import phot_names, dr
 
 
 def get_lsf_features(lsf_hdul):
     """BAG O' HACKS"""
 
-    lsf = lsf_hdul[0].data[:, 7]  # Because: What other pixel would you choose?
+    if dr == 'dr17':
+        lsf = lsf_hdul[0].data[:, 7]  # MAGIC NUMBER
+    else:
+        lsf = lsf_hdul[1].data[7]  # MAGIC NUMBER
     pix = np.arange(len(lsf))
 
     locs = [500, 2500, 4000, 5600, 6600, 7900]
@@ -29,17 +24,14 @@ def get_lsf_features(lsf_hdul):
     return np.array(vals)
 
 
-def get_phot_features(star, phot_names=None):
-    if phot_names is None:
-        phot_names = default_phot_names
-
+def get_phot_features(star):
     vals = []
     for name in phot_names:
         vals.append(star[name])
     return np.array(vals)
 
 
-def get_spec_features(star_hdul):
+def get_spec_features(star_hdul, lowpass=True):
     pix = np.arange(star_hdul[1].header['NAXIS1'])
     wvln = 10 ** (star_hdul[1].header['CRVAL1'] +
                   pix * star_hdul[1].header['CDELT1'])
@@ -47,12 +39,19 @@ def get_spec_features(star_hdul):
     flux = star_hdul[1].data
     err = star_hdul[2].data
 
-    mask = (flux <= 0) | (err > (3 * np.median(err))) | (~np.isfinite(flux))
+    mask = ((flux <= 0) |
+            (err > (5 * np.median(err))) |  # MAGIC NUMBER
+            (err == 0) |
+            (~np.isfinite(flux)))
     ln_flux = np.full_like(flux, np.nan)
     ln_flux[~mask] = np.log(flux[~mask])
 
-    new_ln_flux = nufft_lowpass(ln_wvln, ln_flux,
-                                fcut=0.5 * 22500,
-                                bad_mask=mask)
+    if lowpass:
+        new_ln_flux = nufft_lowpass(ln_wvln, ln_flux,
+                                    fcut=0.5 * 22500,
+                                    bad_mask=mask)
+    else:
+        new_ln_flux = ln_flux
+        new_ln_flux[mask] = 0.
 
-    return new_ln_flux
+    return new_ln_flux, mask

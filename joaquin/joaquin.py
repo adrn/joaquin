@@ -5,19 +5,14 @@ TODO: change API so Joaquin takes "stars"
 import numpy as np
 from scipy.optimize import minimize
 
-from .design_matrix import DesignMatrix
 from .logger import logger
 
 
 class Joaquin:
 
-    def __init__(self, stars, terms=['lsf', 'phot', 'spec'],
-                 frozen=None, DM_kwargs=None):
-        # TODO
-        if DM_kwargs is None:
-            DM_kwargs = dict()
-        self.dm = DesignMatrix(stars, **DM_kwargs)
-        self.X, self.y, self.y_ivar = self.dm.get_sub_Xy(terms)
+    def __init__(self, data, terms=['phot', 'lsf', 'spec'], frozen=None):
+        self.data = data
+        self.X, self.y, self.y_ivar, self.idx_map = self.data.get_sub_Xy(terms)
 
         # Currently, stores parameter names and shapes
         self._param_info = {}
@@ -32,7 +27,7 @@ class Joaquin:
         self._param_info['beta'] = self.X.shape[1]
 
         if 'spec' in terms:
-            L2_slice = self.dm.idx_map['spec']
+            L2_slice = self.idx_map['spec']
         else:
             L2_slice = np.ones(self.X.shape[1], dtype=bool)
         self.L2_slice = L2_slice
@@ -101,8 +96,8 @@ class Joaquin:
         resid = y - model_y
 
         ll = -0.5 * np.sum(resid**2 * self.y_ivar)
-        ll_grad = np.dot(self.X.T * model_y,  # broadcasting trickery
-                         self.y_ivar * resid)
+        ll_grad = np.dot(self.X.T,
+                         model_y * self.y_ivar * resid)
 
         return ll, ll_grad
 
