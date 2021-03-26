@@ -24,7 +24,7 @@ if sdss_auth_file.exists():
 else:
     sdss_auth = None
 
-phot_names = [
+all_phot_names = [
     'GAIAEDR3_PHOT_G_MEAN_MAG',
     'GAIAEDR3_PHOT_BP_MEAN_MAG',
     'GAIAEDR3_PHOT_RP_MEAN_MAG',

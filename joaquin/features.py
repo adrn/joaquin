@@ -1,7 +1,7 @@
 import numpy as np
 
 from .filters import nufft_lowpass
-from .config import phot_names, dr
+from .config import dr, all_phot_names
 
 
 def get_lsf_features(lsf_hdul):
@@ -26,7 +26,7 @@ def get_lsf_features(lsf_hdul):
 
 def get_phot_features(star):
     vals = []
-    for name in phot_names:
+    for name in all_phot_names:
         vals.append(star[name])
     return np.array(vals)
 
