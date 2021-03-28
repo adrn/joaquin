@@ -8,7 +8,7 @@ from tqdm.auto import tqdm
 from .features import get_lsf_features, get_phot_features, get_spec_features
 from .apogee_data import get_aspcapstar, get_lsf
 from .logger import logger
-from .config import all_phot_names
+from .config import all_phot_names, root_cache_path
 
 
 class JoaquinData:
@@ -17,7 +17,14 @@ class JoaquinData:
                  overwrite=False, progress=True):
 
         if cache_file is not None:
-            cache_file = pathlib.Path(cache_file).resolve()
+            cache_file = pathlib.Path(cache_file)
+
+            if not cache_file.suffix:  # filename only passed in
+                cache_file = (root_cache_path / 'data' /
+                              cache_file.with_suffix(".hdf5"))
+
+            cache_file = cache_file.resolve()
+            logger.debug(f"Cache file parsed to: {str(cache_file)}")
             cache_file.parent.mkdir(exist_ok=True, parents=True)
 
             if not cache_file.exists() or overwrite:
@@ -100,9 +107,16 @@ class JoaquinData:
         for i, star in enumerate(iter_(stars)):
             try:
                 star_hdul = get_aspcapstar(star)
+            except Exception as e:
+                logger.log(
+                    1, f"failed to load aspcapStar file for star {i}:\n{e}")
+                continue
+
+            try:
                 lsf_hdul = get_lsf(star)
             except Exception as e:
-                logger.debug(f"failed to load data file for star {i}:\n{e}")
+                logger.log(
+                    1, f"failed to load apStarLSF file for star {i}:\n{e}")
                 continue
 
             lsf_f = get_lsf_features(lsf_hdul)
@@ -111,7 +125,7 @@ class JoaquinData:
                 spec_f, spec_mask = get_spec_features(star_hdul,
                                                       lowpass=lowpass)
             except:  # noqa
-                logger.log(0, f"failed to get spectrum features for star {i}")
+                logger.log(1, f"failed to get spectrum features for star {i}")
                 continue
             finally:
                 star_hdul.close()
@@ -182,7 +196,8 @@ class JoaquinData:
                 f.attrs[k] = meta[k]
 
     def get_Xy(self, terms=['phot', 'lsf', 'spec'],
-               phot_names=None, spec_mask_thresh=0.25,
+               phot_names=None,
+               spec_mask_thresh=0.25, spec_good_mask=None,
                good_stars_only=True):
 
         if isinstance(terms, str):
@@ -191,7 +206,9 @@ class JoaquinData:
         if phot_names is None:
             phot_names = all_phot_names
 
-        spec_good_mask = self._spec_mask_vals < spec_mask_thresh
+        if spec_good_mask is None:
+            logger.debug('Using cached spectral feature mask values')
+            spec_good_mask = self._spec_mask_vals < spec_mask_thresh
 
         idx_map = self._idx_map.copy()
         idx_map['spec'] = idx_map['spec'][spec_good_mask]

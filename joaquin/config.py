@@ -1,19 +1,27 @@
 import os
 import pathlib
 
-dr = 'dr16'
-reduction = 'r12'
-
-# dr = 'dr17'  # TODO
-# reduction = '??'
-
 # For cross-validation:
 Kfold_K = 8
 
-# Path to a /.../apogee folder
+###############################################################################
+# DATA / CACHING
+
+# What APOGEE data reduction are we using?
+dr = 'dr16'
+reduction = 'r12'
+# dr = 'dr17'  # TODO
+# reduction = '??'
+
+# Path to a /.../apogee folder to download the data to
 APOGEE_CACHE_PATH = pathlib.Path(os.environ.get(
     "APOGEE_CACHE_PATH",
     pathlib.Path.home() / ".apogee")).expanduser().resolve()
+
+JOAQUIN_CACHE_PATH = pathlib.Path(os.environ.get(
+    "JOAQUIN_CACHE_PATH",
+    pathlib.Path(__file__).parent.parent / 'cache'))
+root_cache_path = JOAQUIN_CACHE_PATH / dr
 
 # Load authentication for SDSS
 sdss_auth_file = pathlib.Path('~/.sdss.login').expanduser()
