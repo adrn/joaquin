@@ -12,6 +12,9 @@ phot_to_label = {
     'w2mpro': 'W2',
     'w3mpro': 'W3',
     'w4mpro': 'W4',
+    'J': 'J',
+    'H': 'H',
+    'K': 'K'
 }
 
 
