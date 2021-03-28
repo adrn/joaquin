@@ -24,6 +24,7 @@ if sdss_auth_file.exists():
 else:
     sdss_auth = None
 
+# All photometric data column names:
 all_phot_names = [
     'GAIAEDR3_PHOT_G_MEAN_MAG',
     'GAIAEDR3_PHOT_BP_MEAN_MAG',
@@ -31,3 +32,7 @@ all_phot_names = [
     'J', 'H', 'K',
     'w1mpro', 'w2mpro', 'w3mpro', 'w4mpro'
 ]
+
+# Logging configuration
+logger_level = 1  # show all
+# logger_level = 20  # INFO

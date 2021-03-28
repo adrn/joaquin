@@ -1,5 +1,4 @@
 import pathlib
-import hashlib
 
 import astropy.table as at
 import h5py
@@ -14,29 +13,24 @@ from .config import all_phot_names
 
 class JoaquinData:
 
-    def __init__(self, stars, lowpass=True, cache_path=None, filename=None,
+    def __init__(self, stars=None, cache_file=None, lowpass=True,
                  overwrite=False, progress=True):
 
-        if cache_path is not None:
-            cache_path = pathlib.Path(cache_path)
-            this_cache_path = (cache_path / 'data').resolve()
-            this_cache_path.mkdir(exist_ok=True, parents=True)
-
-            name = hashlib.sha256(
-                (','.join(stars['APOGEE_ID'])).encode('utf-8')).hexdigest()
-            cache_file = this_cache_path / f'{name}.hdf5'
+        if cache_file is not None:
+            cache_file = pathlib.Path(cache_file).resolve()
+            cache_file.parent.mkdir(exist_ok=True, parents=True)
 
             if not cache_file.exists() or overwrite:
                 logger.debug(
-                    'Design matrix cache file not found, or being overwritten '
-                    f'for {len(stars)} stars')
+                    'Design matrix data cache file not found, or being '
+                    f'overwritten for {len(stars)} stars')
                 self._make_Xy(stars, progress=progress, lowpass=lowpass)
                 self._write(cache_file)
 
             else:
                 logger.debug(
                     'Design matrix cache file found: loading pre-cached design '
-                    f'matrix from {str(cache_file)}')
+                    f'matrix data from {str(cache_file)}')
                 self._read(cache_file)
 
         else:
@@ -52,7 +46,7 @@ class JoaquinData:
 
         self.stars = stars
 
-        stars_mask = np.all(np.isfinite(self._X[0]), axis=1)
+        stars_mask = np.all(np.isfinite(self._X), axis=1)
         if not np.all(stars_mask):
             nfailures = len(stars_mask) - stars_mask.sum()
             logger.debug(
@@ -69,6 +63,11 @@ class JoaquinData:
             iter_ = tqdm
         else:
             iter_ = iter
+
+        if stars is None:
+            raise ValueError(
+                "Input `stars` is None! You must pass a table of allStar data "
+                "using the `stars` argument to the initializer")
 
         # First, figure out how many features we have:
         for star in stars:

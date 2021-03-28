@@ -4,6 +4,7 @@ import sys
 
 # Third-party
 from astropy.logger import StreamHandler
+from .config import logger_level
 
 __all__ = ['logger']
 
@@ -26,10 +27,11 @@ class JoaquinLogger(logging.getLoggerClass()):
         self.setLevel(logging.INFO)
 
         # Set up the stdout handler
-        sh = JoaquinHandler(stream=sys.stdout)
+        sh = JoaquinHandler(sys.stdout)
         self.addHandler(sh)
 
 
 logging.setLoggerClass(JoaquinLogger)
 logger = logging.getLogger('joaquin')
 logger._set_defaults()
+logger.setLevel(logger_level)
