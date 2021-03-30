@@ -1,6 +1,13 @@
 import os
 import pathlib
 
+###############################################################################
+# Joaquin
+
+# For zoning the neighborhoods:
+zone1_K = 2048
+zone2_K = 8192
+
 # For cross-validation:
 Kfold_K = 8
 
@@ -41,6 +48,8 @@ all_phot_names = [
     'w1mpro', 'w2mpro', 'w3mpro', 'w4mpro'
 ]
 
+###############################################################################
 # Logging configuration
-logger_level = 1  # show all
+
+logger_level = 1  # show all messages
 # logger_level = 20  # INFO
