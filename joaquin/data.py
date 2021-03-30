@@ -43,6 +43,18 @@ class JoaquinData:
                     f'matrix data from {str(cache_file)}')
                 self._read(cache_file)
 
+                if stars is not None:
+                    # TODO: hard-coded ID column name (APSTAR_ID)
+                    ids1 = np.unique(self.stars['APSTAR_ID']).astype(str)
+                    ids2 = np.unique(stars['APSTAR_ID']).astype(str)
+                    if not np.all(ids1 == ids2):
+                        raise RuntimeError(
+                            "Input `stars` table is not consistent with the "
+                            "previously cached `cache_file` stars! Use "
+                            "`overwrite=True` to overwrite the existing cache "
+                            "file."
+                        )
+
         else:
             self._make_Xy(stars, progress=progress, lowpass=lowpass)
 

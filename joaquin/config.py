@@ -4,6 +4,14 @@ import pathlib
 ###############################################################################
 # Joaquin
 
+# Photometric colors used in the neighborhood construction:
+neighborhood_color_names = [
+    ('GAIAEDR3_PHOT_BP_MEAN_MAG', 'GAIAEDR3_PHOT_RP_MEAN_MAG'),
+    ('GAIAEDR3_PHOT_RP_MEAN_MAG', 'w1mpro'),
+    ('H', 'w2mpro'),
+    ('w1mpro', 'w2mpro')
+]
+
 # For zoning the neighborhoods:
 zone1_K = 2048
 zone2_K = 8192
