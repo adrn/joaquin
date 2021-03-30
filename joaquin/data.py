@@ -224,8 +224,13 @@ class JoaquinData:
         else:
             nidx = np.ones(len(self.stars_mask), dtype=bool)
 
-        return ((self._X[nidx][:, idx], self._y[nidx], self._y_ivar[nidx]),
-                new_idx_map)
+        d = {
+            'X': self._X[nidx][:, idx],
+            'y': self._y[nidx],
+            'y_ivar': self._y_ivar[nidx]
+        }
+
+        return d, new_idx_map
 
     def get_colors(self, colors, good_stars_only=True):
         """
