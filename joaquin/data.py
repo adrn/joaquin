@@ -5,8 +5,8 @@ import h5py
 import numpy as np
 from tqdm.auto import tqdm
 
-from .features import get_lsf_features, get_phot_features, get_spec_features
 from .apogee_data import get_aspcapstar, get_lsf
+from .features import get_lsf_features, get_phot_features, get_spec_features
 from .logger import logger
 from .config import all_phot_names, root_cache_path
 
@@ -15,6 +15,9 @@ class JoaquinData:
 
     def __init__(self, stars=None, cache_file=None, lowpass=True,
                  overwrite=False, progress=True):
+
+        if stars is None and cache_file is None:
+            raise ValueError("TODO")
 
         if cache_file is not None:
             cache_file = pathlib.Path(cache_file)
@@ -79,24 +82,23 @@ class JoaquinData:
         # First, figure out how many features we have:
         for star in stars:
             try:
-                star_hdul = get_aspcapstar(star)
-                lsf_hdul = get_lsf(star)
+                wvln, flux, err = get_aspcapstar(star)
+                pix, lsf = get_lsf(star)
 
-                lsf_f = get_lsf_features(lsf_hdul)
-                phot_f = get_phot_features(stars)
-                spec_f, mask = get_spec_features(star_hdul, lowpass=lowpass)
+                phot_f = get_phot_features(star)
+                lsf_f = get_lsf_features(lsf)
+                spec_f, mask = get_spec_features(wvln, flux, err,
+                                                 lowpass=lowpass)
 
             except Exception:  # noqa
                 continue
 
-            finally:
-                star_hdul.close()
-                lsf_hdul.close()
-
             Nlsf = len(lsf_f)
             Nphot = len(phot_f)
             Nspec = len(spec_f)
+
             break
+
         else:
             raise RuntimeError("Failed to determine number of features")
 
@@ -106,30 +108,22 @@ class JoaquinData:
         spec_masks = np.full((Nstars, Nspec), np.nan)
         for i, star in enumerate(iter_(stars)):
             try:
-                star_hdul = get_aspcapstar(star)
+                wvln, flux, err = get_aspcapstar(star)
+                pix, lsf = get_lsf(star)
             except Exception as e:
-                logger.log(
-                    1, f"failed to load aspcapStar file for star {i}:\n{e}")
+                logger.log(1,
+                           "failed to get aspcapStar or apStarLSF data for "
+                           f"star {i}\n{e}")
                 continue
 
             try:
-                lsf_hdul = get_lsf(star)
-            except Exception as e:
-                logger.log(
-                    1, f"failed to load apStarLSF file for star {i}:\n{e}")
-                continue
-
-            lsf_f = get_lsf_features(lsf_hdul)
-            phot_f = get_phot_features(star)
-            try:
-                spec_f, spec_mask = get_spec_features(star_hdul,
+                phot_f = get_phot_features(star)
+                lsf_f = get_lsf_features(lsf)
+                spec_f, spec_mask = get_spec_features(wvln, flux, err,
                                                       lowpass=lowpass)
-            except:  # noqa
-                logger.log(1, f"failed to get spectrum features for star {i}")
+            except Exception as e:
+                logger.log(1, f"failed to get features for star {i}\n{e}")
                 continue
-            finally:
-                star_hdul.close()
-                lsf_hdul.close()
 
             phot_idx = np.arange(Nphot, dtype=int)
 
@@ -141,9 +135,6 @@ class JoaquinData:
 
             X[i] = np.concatenate((phot_f, lsf_f, spec_f))
             spec_masks[i] = spec_mask
-
-            star_hdul.close()
-            lsf_hdul.close()
 
         y = stars['GAIAEDR3_PARALLAX']
         y_ivar = 1 / stars['GAIAEDR3_PARALLAX_ERROR'] ** 2

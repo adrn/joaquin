@@ -1,19 +1,14 @@
 import numpy as np
 
 from .filters import nufft_lowpass
-from .config import dr, all_phot_names
+from .config import all_phot_names
 
 
-def get_lsf_features(lsf_hdul):
-    """BAG O' HACKS"""
-
-    if dr == 'dr17':
-        lsf = lsf_hdul[0].data[:, 7]  # MAGIC NUMBER
-    else:
-        lsf = lsf_hdul[1].data[7]  # MAGIC NUMBER
+def get_lsf_features(lsf):
     pix = np.arange(len(lsf))
 
-    locs = [500, 2500, 4000, 5600, 6600, 7900]
+    # BAG O' HACKS
+    locs = [500, 2500, 4000, 5600, 6600, 7900]  # MAGIC NUMBERs
     half_size = 50
 
     vals = []
@@ -31,13 +26,8 @@ def get_phot_features(star):
     return np.array(vals)
 
 
-def get_spec_features(star_hdul, lowpass=True):
-    pix = np.arange(star_hdul[1].header['NAXIS1'])
-    wvln = 10 ** (star_hdul[1].header['CRVAL1'] +
-                  pix * star_hdul[1].header['CDELT1'])
+def get_spec_features(wvln, flux, err, lowpass=True):
     ln_wvln = np.log(wvln)
-    flux = star_hdul[1].data
-    err = star_hdul[2].data
 
     mask = ((flux <= 0) |
             (err > (5 * np.median(err))) |  # MAGIC NUMBER
