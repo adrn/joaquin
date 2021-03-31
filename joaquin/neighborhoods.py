@@ -17,7 +17,7 @@ def stretch(x, vmin=None, vmax=None):
 
 
 def get_neighborhood_X(data, spec_good_mask, color_names=None,
-                       apply_stretch=True):
+                       apply_stretch_to_colors=True):
     d, idx_map = data.get_Xy(['spec'],
                              spec_good_mask=spec_good_mask)
 
@@ -29,7 +29,7 @@ def get_neighborhood_X(data, spec_good_mask, color_names=None,
 
     color_X = data.get_colors(color_names)
 
-    if apply_stretch:
+    if apply_stretch_to_colors:
         for i in range(color_X.shape[1]):
             color_X[:, i] = stretch(
                 color_X[:, i],
