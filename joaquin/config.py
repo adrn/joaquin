@@ -12,9 +12,11 @@ neighborhood_color_names = [
     ('w1mpro', 'w2mpro')
 ]
 
-# For zoning the neighborhoods:
-zone1_K = 2048
-zone2_K = 8192
+# Target size of each neighborhood (both zones):
+target_neighborhood_size = 8192
+
+# Size of the Zone 1 subsample:
+zone1_size = 2048
 
 # For cross-validation:
 Kfold_K = 8
