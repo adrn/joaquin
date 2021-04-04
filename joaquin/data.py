@@ -180,25 +180,32 @@ class JoaquinData:
         # TODO: APOGEE resolution hard-coded
         fcut = 0.5 * 22500 * fcut_factor
         ln_wvln = np.log(self.spec_wvln)
-        X = self.get_X('spec')
+        spec_X, _ = self.get_X('spec')
 
         if copy:
-            new_X = np.full_like(X, np.nan)
+            new_spec_X = np.full_like(spec_X, np.nan)
         else:
-            new_X = X
+            new_spec_X = spec_X
 
         mask = None
         for i in range_(self.X.shape[0]):
             if self.spec_bad_masks is not None:
                 mask = self.spec_bad_masks[i]
-            new_X[i] = nufft_lowpass(ln_wvln,
-                                     X[i],
-                                     fcut=fcut,
-                                     bad_mask=mask)
-            new_X[i][mask] = fill_value
 
-        # TODO: wrong because new_X is just the spec part
-        return self._replicate(X=new_X)
+            new_spec_X[i] = nufft_lowpass(ln_wvln,
+                                          spec_X[i],
+                                          fcut=fcut,
+                                          bad_mask=mask)
+            new_spec_X[i][mask] = fill_value
+
+        if copy:
+            new_X = self.X.copy()
+            new_X[:, self._idx_map['spec']] = new_spec_X
+            return self._replicate(X=new_X)
+
+        else:
+            self.X[:, self._idx_map['spec']] = new_spec_X
+            return self
 
     def fill_masked_spec_pixels(self, global_spec_bad_mask=None,
                                 spec_mask_thresh=None, fill_value=0.,
@@ -283,7 +290,7 @@ class JoaquinData:
             start = start + len(idx_map[name])
         idx = np.concatenate(idx)
 
-        return self._X[:, idx], new_idx_map
+        return self.X[:, idx], new_idx_map
 
     def put_X(self, sub_X, term, copy=True):
         pass
@@ -377,7 +384,7 @@ def make_X(stars, progress=True, X_dtype=np.float32):
     Nstars = len(stars)
     Nfeatures = Nphot + Nlsf + Nspec
     X = np.full((Nstars, Nfeatures), np.nan, dtype=X_dtype)
-    spec_masks = np.full((Nstars, Nspec), np.nan)
+    spec_bad_masks = np.full((Nstars, Nspec), True, dtype=bool)
     for i, star in enumerate(iter_(stars)):
         try:
             wvln, flux, err = get_aspcapstar(star)
@@ -406,12 +413,12 @@ def make_X(stars, progress=True, X_dtype=np.float32):
         spec_idx = np.arange(last, last + Nspec, dtype=int)
 
         X[i] = np.concatenate((phot_f, lsf_f, spec_f))
-        spec_masks[i] = spec_mask
+        spec_bad_masks[i] = spec_mask
 
     idx_map = {
-        'lsf': lsf_idx,
         'phot': phot_idx,
+        'lsf': lsf_idx,
         'spec': spec_idx
     }
 
-    return X, idx_map, wvln, spec_masks
+    return X, idx_map, wvln, spec_bad_masks
