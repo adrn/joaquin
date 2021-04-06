@@ -89,7 +89,7 @@ def simple_corner(X, labels=None, color_by=None, axes=None,
     return return_stuff
 
 
-def plot_hr_cmd(parent_data, stars,
+def plot_hr_cmd(parent_stars, stars,
                 idx0, other_idx,
                 teff_logg_bins=None, cmd_bins=None):
 
@@ -111,7 +111,7 @@ def plot_hr_cmd(parent_data, stars,
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
     ax = axes[0]
-    ax.hist2d(parent_data.stars['TEFF'], parent_data.stars['LOGG'],
+    ax.hist2d(parent_stars['TEFF'], parent_stars['LOGG'],
               bins=teff_logg_bins, norm=mpl.colors.LogNorm(),
               cmap='Greys')
 
@@ -138,10 +138,13 @@ def plot_hr_cmd(parent_data, stars,
     color = ('J', 'K')
     mag = 'H'
 
-    dist_mask, = np.where((parent_data.stars['GAIAEDR3_PARALLAX'] / parent_data.stars['GAIAEDR3_PARALLAX_ERROR']) > 5)
-    distmod = coord.Distance(parallax=parent_data.stars['GAIAEDR3_PARALLAX'][dist_mask]*u.mas).distmod.value
-    ax.hist2d((parent_data.stars[color[0]] - parent_data.stars[color[1]])[dist_mask],
-              parent_data.stars[mag][dist_mask] - distmod,
+    dist_mask, = np.where((parent_stars['GAIAEDR3_PARALLAX'] /
+                           parent_stars['GAIAEDR3_PARALLAX_ERROR']) > 5)
+    plx = parent_stars['GAIAEDR3_PARALLAX'][dist_mask] * u.mas
+    distmod = coord.Distance(
+        parallax=plx).distmod.value
+    ax.hist2d((parent_stars[color[0]] - parent_stars[color[1]])[dist_mask],
+              parent_stars[mag][dist_mask] - distmod,
               bins=cmd_bins, norm=mpl.colors.LogNorm(),
               cmap='Greys')
 
