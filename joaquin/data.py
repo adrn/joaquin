@@ -75,10 +75,12 @@ class JoaquinData:
                 # TODO: hard-coded ID column name (APSTAR_ID)
                 ids1 = np.unique(obj.stars['APSTAR_ID']).astype(str)
                 ids2 = np.unique(stars['APSTAR_ID']).astype(str)
-                if not np.all(ids1 == ids2):
-                    raise RuntimeError(
+                if ids1.shape != ids2.shape or not np.all(ids1 == ids2):
+                    logger.warning(
                         "Input `stars` table is not consistent with the "
-                        "previously cached `cache_file` stars! Use "
+                        "previously cached `cache_file` stars. This is likely "
+                        "because some stars were masked due to lack of data. "
+                        "But you might want to check to make sure! Or use "
                         "`overwrite=True` to overwrite the existing cache "
                         "file."
                     )
@@ -89,7 +91,9 @@ class JoaquinData:
         # sample from the input stars!
         X, idx_map, wvln, spec_masks = make_X(stars, progress=progress)
 
-        obj = cls(stars, X, idx_map, wvln, spec_bad_masks=spec_masks)
+        stars_mask = np.all(np.isfinite(X), axis=1)
+        obj = cls(stars[stars_mask], X[stars_mask], idx_map, wvln,
+                  spec_bad_masks=spec_masks[stars_mask])
 
         if cache_file is not None or overwrite:
             logger.debug(
@@ -137,7 +141,7 @@ class JoaquinData:
 
             self.stars.write(f, path='stars', serialize_meta=False)
 
-            f.attrs['all_phot_names'] = list(self._all_phot_names)
+            f.attrs['all_phot_names'] = list(self.all_phot_names)
 
     def _replicate(self, X, stars=None, **kwargs):
         if stars is None:
@@ -383,7 +387,7 @@ def make_X(stars, progress=True, X_dtype=np.float32, spec_fill_value=0.):
             phot_f = get_phot_features(star)
             lsf_f = get_lsf_features(lsf)
             spec_f, mask = get_spec_features(wvln, flux, err,
-                                             lowpass=False)
+                                             fill_value=spec_fill_value)
 
         except Exception:  # noqa
             continue
