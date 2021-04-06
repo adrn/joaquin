@@ -168,6 +168,67 @@ class JoaquinData:
     ###########################################################################
     # Operations on the feature matrix
 
+    def fill_masked_spec_pixels(self, spec_mask_thresh=None, fill_value=0.,
+                                copy=True):
+
+        if self.spec_bad_masks is not None:
+            spec_bad_masks = self.spec_bad_masks
+        else:
+            spec_bad_masks = np.zeros(
+                (len(self.stars), self.n_features('spec')), dtype=bool)
+
+        if spec_mask_thresh is not None:
+            spec_mask_vals = spec_bad_masks.sum(axis=0) / len(spec_bad_masks)
+            global_spec_bad_mask = spec_mask_vals >= spec_mask_thresh
+            spec_bad_masks = spec_bad_masks | global_spec_bad_mask
+
+        spec_X, _ = self.get_X('spec')
+        spec_X[spec_bad_masks] = fill_value
+
+        if copy:
+            new_X = self.X.copy()
+            new_X[:, self._idx_map['spec']] = spec_X
+            return self._replicate(X=new_X)
+
+        else:
+            raise NotImplementedError("TODO")
+
+            # Note: This indexing order doesn't work for in-place...
+            # self.X[:, self._idx_map['spec']] = spec_X
+            # return self
+
+    def mask_spec_pixels(self, spec_bad_mask, copy=True):
+        spec_bad_mask = np.array(spec_bad_mask)
+
+        if spec_bad_mask.ndim > 1:
+            raise ValueError("The global bad spectral feature mask must be "
+                             "one-dimensional. To set the 2D mask, override "
+                             "the `spec_bad_masks` attribute.")
+
+        new_spec_X = self.X[:, self._idx_map['spec'][~spec_bad_mask]]
+        return self.put_X('spec', new_spec_X,
+                          spec_wvln=self.spec_wvln[~spec_bad_mask],
+                          copy=copy)
+
+    def patch_spec(self, stuff, patching_n_components=None):
+        # TODO: not updated!
+        from .config import (patching_n_components
+                             as default_patching_n_components)
+
+        if patching_n_components is None:
+            patching_n_components = default_patching_n_components
+
+        pca = PCA(n_components=patching_n_components)
+
+        subX_pca = pca.fit_transform(self.X)
+        tmp_patched = pca.inverse_transform(subX_pca)
+
+        subX_patched = self.X.copy()
+        subX_patched[subX_patched == 0] = tmp_patched[subX_patched == 0]
+
+        # TODO: wrong because this is just the spectral part
+        return self._replicate(X=subX_patched)
+
     def lowpass_filter_spec(self, fcut_factor=1., progress=True,
                             fill_value=0., copy=True):
         from .filters import nufft_lowpass
@@ -207,61 +268,6 @@ class JoaquinData:
             self.X[:, self._idx_map['spec']] = new_spec_X
             return self
 
-    def fill_masked_spec_pixels(self, global_spec_bad_mask=None,
-                                spec_mask_thresh=None, fill_value=0.,
-                                copy=True):
-
-        if self.spec_bad_masks is not None:
-            spec_bad_masks = self.spec_bad_masks.copy()
-        else:
-            spec_bad_masks = np.zeros(
-                (len(self.stars), self.n_features('spec')), dtype=bool)
-
-        if global_spec_bad_mask is not None and spec_mask_thresh is not None:
-            raise ValueError(
-                "You may only specify one of `global_spec_bad_mask` or "
-                "`spec_mask_thresh`, not both.")
-
-        if global_spec_bad_mask is not None:
-            global_spec_bad_mask = np.array(global_spec_bad_mask)
-
-            if global_spec_bad_mask.ndim > 1:
-                raise ValueError("The global bad spectral feature mask must "
-                                 "be one-dimensional. To set the 2D mask, "
-                                 "override the `spec_bad_masks` attribute.")
-
-        if spec_mask_thresh is not None:
-            spec_mask_vals = spec_bad_masks.sum(axis=0)
-            global_spec_bad_mask = spec_mask_vals >= spec_mask_thresh
-
-        spec_bad_masks |= global_spec_bad_mask
-
-        if copy:
-            X = self.X.copy()
-            X[spec_bad_masks] = fill_value
-            return self._replicate(X=X)
-
-        else:
-            self.X[spec_bad_masks] = fill_value
-            return self
-
-    def patch_spec(self, stuff, patching_n_components=None):
-        from .config import (patching_n_components
-                             as default_patching_n_components)
-
-        if patching_n_components is None:
-            patching_n_components = default_patching_n_components
-
-        pca = PCA(n_components=patching_n_components)
-
-        subX_pca = pca.fit_transform(self.X)
-        tmp_patched = pca.inverse_transform(subX_pca)
-
-        subX_patched = self.X.copy()
-        subX_patched[subX_patched == 0] = tmp_patched[subX_patched == 0]
-
-        return self._replicate(X=subX_patched)
-
     ###########################################################################
     # Feature matrix utilities
 
@@ -292,8 +298,23 @@ class JoaquinData:
 
         return self.X[:, idx], new_idx_map
 
-    def put_X(self, sub_X, term, copy=True):
-        pass
+    def put_X(self, term, sub_X, copy=True, **kwargs):
+        terms = ['phot', 'lsf', 'spec']
+        terms.pop(terms.index(term))
+        X, idx_map = self.get_X(terms)
+
+        idx_map[term] = X.shape[1] + np.arange(sub_X.shape[1])
+        X = np.hstack((X, sub_X))
+
+        if copy:
+            return self._replicate(X=X, idx_map=idx_map, **kwargs)
+
+        else:
+            self._idx_map = idx_map
+            self.X = X
+            for k in kwargs:
+                setattr(self, k, kwargs[k])
+            return self
 
     def get_neighborhood_X(self, color_names=None, renormalize_colors=True):
         from .config import neighborhood_color_names
@@ -329,25 +350,22 @@ class JoaquinData:
             )
         return N
 
-    def get_colors(self, colors, good_stars_only=True):
+    def get_colors(self, colors):
         """
         colors : iterable of tuples of strings
         """
         color_X = []
         for band1, band2 in colors:
-            i1 = self._idx_map['phot'][self.all_phot_names.index(band1)]
-            i2 = self._idx_map['phot'][self.all_phot_names.index(band2)]
-            color_X.append(self._X[:, i1] - self._X[:, i2])
+            i1 = self._idx_map['phot'][np.argwhere(
+                self.all_phot_names == band1)[0][0]]
+            i2 = self._idx_map['phot'][np.argwhere(
+                self.all_phot_names == band2)[0][0]]
+            color_X.append(self.X[:, i1] - self.X[:, i2])
 
-        if good_stars_only:
-            nidx = self.stars_mask
-        else:
-            nidx = np.ones(len(self.stars_mask), dtype=bool)
-
-        return np.stack(color_X, axis=1)[nidx]
+        return np.stack(color_X, axis=1)
 
 
-def make_X(stars, progress=True, X_dtype=np.float32):
+def make_X(stars, progress=True, X_dtype=np.float32, spec_fill_value=0.):
     if progress:
         iter_ = tqdm
     else:
@@ -399,7 +417,7 @@ def make_X(stars, progress=True, X_dtype=np.float32):
             phot_f = get_phot_features(star)
             lsf_f = get_lsf_features(lsf)
             spec_f, spec_mask = get_spec_features(wvln, flux, err,
-                                                  lowpass=False)
+                                                  fill_value=spec_fill_value)
         except Exception as e:
             logger.log(1, f"failed to get features for star {i}\n{e}")
             continue
