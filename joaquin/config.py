@@ -12,6 +12,9 @@ neighborhood_color_names = [
     ('w1mpro', 'w2mpro')
 ]
 
+# Number of PCA components to use for making the neighborhoods:
+neighborhood_n_components = 8
+
 # Size of the larger neighborhood:
 neighborhood_size = 8192
 
