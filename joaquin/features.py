@@ -1,6 +1,5 @@
 import numpy as np
 
-from .filters import nufft_lowpass
 from .config import all_phot_names
 
 
@@ -26,9 +25,7 @@ def get_phot_features(star):
     return np.array(vals)
 
 
-def get_spec_features(wvln, flux, err, lowpass=True):
-    ln_wvln = np.log(wvln)
-
+def get_spec_features(wvln, flux, err, fill_value=0.):
     mask = ((flux <= 0) |
             (err > (5 * np.median(err))) |  # MAGIC NUMBER
             (err == 0) |
@@ -36,12 +33,7 @@ def get_spec_features(wvln, flux, err, lowpass=True):
     ln_flux = np.full_like(flux, np.nan)
     ln_flux[~mask] = np.log(flux[~mask])
 
-    if lowpass:
-        new_ln_flux = nufft_lowpass(ln_wvln, ln_flux,
-                                    fcut=0.5 * 22500,
-                                    bad_mask=mask)
-    else:
-        new_ln_flux = ln_flux
-        new_ln_flux[mask] = 0.
+    new_ln_flux = ln_flux
+    new_ln_flux[mask] = fill_value
 
     return new_ln_flux, mask
