@@ -21,8 +21,11 @@ testing_zone_size = 2048
 # For cross-validation:
 Kfold_K = 8
 
+# Number of PCA components to use to patch the missing spectral pixels:
+patching_n_components = 8
+
 ###############################################################################
-# DATA / CACHING
+# APOGEE DATA / CACHING
 
 # What APOGEE data reduction are we using?
 dr = 'dr16'
