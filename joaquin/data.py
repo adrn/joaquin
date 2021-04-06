@@ -211,7 +211,6 @@ class JoaquinData:
                           copy=copy)
 
     def patch_spec(self, stuff, patching_n_components=None):
-        # TODO: not updated!
         from .config import (patching_n_components
                              as default_patching_n_components)
 
@@ -220,14 +219,13 @@ class JoaquinData:
 
         pca = PCA(n_components=patching_n_components)
 
-        subX_pca = pca.fit_transform(self.X)
+        spec_X = self.get_X('spec')[0].copy()
+        subX_pca = pca.fit_transform(spec_X)
         tmp_patched = pca.inverse_transform(subX_pca)
 
-        subX_patched = self.X.copy()
-        subX_patched[subX_patched == 0] = tmp_patched[subX_patched == 0]
+        spec_X[spec_X == 0] = tmp_patched[spec_X == 0]
 
-        # TODO: wrong because this is just the spectral part
-        return self._replicate(X=subX_patched)
+        return self.put_X('spec', sub_X=spec_X)
 
     def lowpass_filter_spec(self, fcut_factor=1., progress=True,
                             fill_value=0., copy=True):
