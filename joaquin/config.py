@@ -15,11 +15,11 @@ neighborhood_color_names = [
 # Number of PCA components to use for making the neighborhoods:
 neighborhood_n_components = 8
 
-# Size of the larger neighborhood:
+# Size of the larger neighborhood around each "stoop":
 neighborhood_size = 8192
 
-# Size of the testing subsample (zone 1):
-testing_zone_size = 2048
+# Size of the testing subsample (the "block") around each "stoop":
+block_size = 2048
 
 # For cross-validation:
 Kfold_K = 8

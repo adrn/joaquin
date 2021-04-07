@@ -167,9 +167,17 @@ class JoaquinData:
                 raise KeyError("Input slice array must have an integer or "
                                "boolean dtype")
 
-        return self._replicate(X=self.X[slc],
-                               stars=self.stars[slc],
-                               spec_bad_masks=self.spec_bad_masks[slc])
+        kw = dict(
+            X=self.X[slc],
+            stars=self.stars[slc],
+        )
+        if self.spec_bad_masks is not None:
+            kw['spec_bad_masks'] = self.spec_bad_masks[slc]
+
+        return self._replicate(**kw)
+
+    def __len__(self):
+        return len(self.stars)
 
     ###########################################################################
     # Operations on the feature matrix
@@ -216,7 +224,7 @@ class JoaquinData:
                           spec_wvln=self.spec_wvln[~spec_bad_mask],
                           copy=copy)
 
-    def patch_spec(self, stuff, patching_n_components=None):
+    def patch_spec(self, patching_n_components=None):
         from .config import (patching_n_components
                              as default_patching_n_components)
 
@@ -261,16 +269,11 @@ class JoaquinData:
                                           spec_X[i],
                                           fcut=fcut,
                                           bad_mask=mask)
-            new_spec_X[i][mask] = fill_value
 
-        if copy:
-            new_X = self.X.copy()
-            new_X[:, self._idx_map['spec']] = new_spec_X
-            return self._replicate(X=new_X)
+            if mask is not None:
+                new_spec_X[i][mask] = fill_value
 
-        else:
-            self.X[:, self._idx_map['spec']] = new_spec_X
-            return self
+        return self.put_X('spec', sub_X=new_spec_X, copy=copy)
 
     ###########################################################################
     # Feature matrix utilities
