@@ -30,7 +30,7 @@ class JoaquinData:
 
         if all_phot_names is None:
             all_phot_names = default_phot_names
-        self.all_phot_names = all_phot_names
+        self.all_phot_names = np.array(all_phot_names)
 
         stars_mask = np.all(np.isfinite(self.X), axis=1)
         if not np.all(stars_mask):
@@ -162,8 +162,10 @@ class JoaquinData:
             except Exception:
                 super().__getitem__(slc)
 
-            if not np.issubdtype(slc.dtype, np.integer):
-                raise KeyError("Input slice array must have an integer dtype")
+            if (not np.issubdtype(slc.dtype, np.integer) and
+                    not np.issubdtype(slc.dtype, np.bool)):
+                raise KeyError("Input slice array must have an integer or "
+                               "boolean dtype")
 
         return self._replicate(X=self.X[slc],
                                stars=self.stars[slc],
