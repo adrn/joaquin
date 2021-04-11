@@ -6,8 +6,8 @@ import pathlib
 
 # Photometric colors used in the neighborhood construction:
 neighborhood_color_names = [
-    ('GAIAEDR3_PHOT_BP_MEAN_MAG', 'GAIAEDR3_PHOT_RP_MEAN_MAG'),
-    ('GAIAEDR3_PHOT_RP_MEAN_MAG', 'w1mpro'),
+    ('phot_bp_mean_mag', 'phot_rp_mean_mag'),
+    ('phot_rp_mean_mag', 'w1mpro'),
     ('H', 'w2mpro'),
     ('w1mpro', 'w2mpro')
 ]
@@ -16,10 +16,10 @@ neighborhood_color_names = [
 neighborhood_n_components = 8
 
 # Size of the larger neighborhood around each "stoop":
-neighborhood_size = 8192
+neighborhood_size = 16384
 
 # Size of the testing subsample (the "block") around each "stoop":
-block_size = 2048
+block_size = 4096
 
 # For cross-validation:
 Kfold_K = 8
@@ -31,10 +31,10 @@ patching_n_components = 8
 # APOGEE DATA / CACHING
 
 # What APOGEE data reduction are we using?
-dr = 'dr16'
-reduction = 'r12'
-# dr = 'dr17'  # TODO
-# reduction = '??'
+# dr = 'dr16'
+# reduction = 'r12'
+dr = 'dr17'
+reduction = 'dr17'
 
 # Path to a /.../apogee folder to download the data to
 APOGEE_CACHE_PATH = pathlib.Path(os.environ.get(
@@ -57,9 +57,9 @@ else:
 
 # All photometric data column names:
 all_phot_names = [
-    'GAIAEDR3_PHOT_G_MEAN_MAG',
-    'GAIAEDR3_PHOT_BP_MEAN_MAG',
-    'GAIAEDR3_PHOT_RP_MEAN_MAG',
+    'phot_g_mean_mag',
+    'phot_bp_mean_mag',
+    'phot_rp_mean_mag',
     'J', 'H', 'K',
     'w1mpro', 'w2mpro', 'w3mpro', 'w4mpro'
 ]
