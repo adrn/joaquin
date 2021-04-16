@@ -1,11 +1,21 @@
-# joaquin
+# Joaquin
 
-Because this project loves [HER](https://ui.adsabs.harvard.edu/abs/2019AJ....158..147H/abstract)
+Stellar model-free spectrophotometric parallaxes.
 
+``Joaquin`` loves
+[HER](https://ui.adsabs.harvard.edu/abs/2019AJ....158..147H/abstract)
 
-## Pipeline
+## Install
 
-- Define the parent sample (1-Parent-sample.ipynb)
-- PCA a subsample of the parent sample spectra as a way of assessing spectral
-  similarity (2-Neighborhoods-PCA.ipynb)
--
+This package is not available via pip, but you can pip install the latest development version with:
+
+    pip install git+https://github.com/adrn/joaquin
+
+## Documentation
+
+Yea...about that...
+
+## License
+
+This project is Copyright (c) Adrian Price-Whelan and licensed under the terms
+of the MIT license.
