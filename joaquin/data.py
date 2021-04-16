@@ -278,11 +278,12 @@ class JoaquinData:
     ###########################################################################
     # Feature matrix utilities
 
-    def get_X(self, terms=['phot', 'lsf', 'spec'],
+    def get_X(self, terms=['ones', 'phot', 'lsf', 'spec'],
               phot_names=None):
 
         if isinstance(terms, str):
             terms = [terms]
+        terms = list(terms)
 
         if phot_names is None:
             phot_names = default_phot_names
@@ -292,9 +293,18 @@ class JoaquinData:
                                        return_indices=True)
         idx_map['phot'] = idx_map['phot'][idx1[idx2.argsort()]]
 
+        X = None
         idx = []
         new_idx_map = {}
         start = 0
+
+        if 'ones' in terms:
+            # Insert the ones column:
+            new_idx_map['ones'] = np.array([0])
+            start = 1
+            X = np.ones((len(self), 1))
+            terms.pop(terms.index('ones'))
+
         for name in terms:
             idx.append(idx_map[name])
 
@@ -303,7 +313,12 @@ class JoaquinData:
             start = start + len(idx_map[name])
         idx = np.concatenate(idx)
 
-        return self.X[:, idx], new_idx_map
+        if X is None:
+            X = self.X[:, idx]
+        else:
+            X = np.hstack((X, self.X[:, idx]))
+
+        return X, new_idx_map
 
     def put_X(self, term, sub_X, copy=True, **kwargs):
         terms = ['phot', 'lsf', 'spec']
