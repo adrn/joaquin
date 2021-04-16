@@ -40,8 +40,6 @@ patching_n_components = 8
 # APOGEE DATA / CACHING
 
 # What APOGEE data reduction are we using?
-# dr = 'dr16'
-# reduction = 'r12'
 dr = 'dr17'
 reduction = 'dr17'
 
@@ -50,10 +48,9 @@ APOGEE_CACHE_PATH = pathlib.Path(os.environ.get(
     "APOGEE_CACHE_PATH",
     pathlib.Path.home() / ".apogee")).expanduser().resolve()
 
-JOAQUIN_CACHE_PATH = pathlib.Path(os.environ.get(
-    "JOAQUIN_CACHE_PATH",
-    pathlib.Path(__file__).parent.parent / 'cache'))
-root_cache_path = JOAQUIN_CACHE_PATH / dr
+JOAQUIN_OUTPUT_PATH = os.environ.get("JOAQUIN_OUTPUT_PATH")
+if JOAQUIN_OUTPUT_PATH is not None:
+    JOAQUIN_OUTPUT_PATH = pathlib.Path(JOAQUIN_OUTPUT_PATH)
 
 # Load authentication for SDSS
 sdss_auth_file = pathlib.Path('~/.sdss.login').expanduser()
