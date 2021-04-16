@@ -12,17 +12,26 @@ neighborhood_color_names = [
     ('w1mpro', 'w2mpro')
 ]
 
+# Photometric measurements used by the model
+phot_names = [
+    'phot_g_mean_mag',
+    'phot_bp_mean_mag',
+    'phot_rp_mean_mag',
+    'J', 'H', 'K',
+    'w1mpro', 'w2mpro'
+]
+
 # Number of PCA components to use for making the neighborhoods:
 neighborhood_n_components = 8
 
-# Size of the larger neighborhood around each "stoop":
-neighborhood_size = 16384
+# Maximum size of the larger neighborhood around each "stoop":
+max_neighborhood_size = 32768
 
 # Size of the testing subsample (the "block") around each "stoop":
-block_size = 4096
+block_size = 1024
 
 # For cross-validation:
-Kfold_K = 8
+Kfold_K = 4
 
 # Number of PCA components to use to patch the missing spectral pixels:
 patching_n_components = 8
