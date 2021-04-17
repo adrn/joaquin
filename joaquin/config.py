@@ -19,7 +19,10 @@ class Config:
     apogee_dr: str = None
     apogee_reduction: str = None
 
+    phot_names: list = None
+
     neighborhood_pca_components: int = None
+    neighborhood_color_names: list = None
     max_neighborhood_size: int = None
     block_size: int = None
     Kfold_K: int = None
