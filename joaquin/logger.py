@@ -4,7 +4,6 @@ import sys
 
 # Third-party
 from astropy.logger import StreamHandler
-from .config import logger_level
 
 __all__ = ['logger']
 
@@ -34,4 +33,4 @@ class JoaquinLogger(logging.getLoggerClass()):
 logging.setLoggerClass(JoaquinLogger)
 logger = logging.getLogger('joaquin')
 logger._set_defaults()
-logger.setLevel(logger_level)
+logger.setLevel(20)  # default
