@@ -1,7 +1,5 @@
 import numpy as np
 
-from .config import all_phot_names
-
 
 def get_lsf_features(lsf):
     pix = np.arange(len(lsf))
@@ -19,9 +17,9 @@ def get_lsf_features(lsf):
     return np.array(vals)
 
 
-def get_phot_features(star):
+def get_phot_features(star, phot_names):
     vals = []
-    for name in all_phot_names:
+    for name in phot_names:
         vals.append(star[name])
     return np.array(vals)
 
