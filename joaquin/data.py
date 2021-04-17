@@ -1,15 +1,15 @@
+# Standard library
 import pathlib
 
+# Third-party
 import astropy.table as at
 import h5py
 import numpy as np
 from sklearn.decomposition import PCA
-from tqdm.auto import tqdm, trange
+from tqdm.auto import trange
 
-from .apogee_data import get_aspcapstar, get_lsf
-from .features import get_lsf_features, get_phot_features, get_spec_features
+# Joaquin
 from .logger import logger
-from .config import all_phot_names as default_phot_names, root_cache_path
 
 __all__ = ['JoaquinData']
 
@@ -17,7 +17,7 @@ __all__ = ['JoaquinData']
 class JoaquinData:
 
     def __init__(self, stars, X, idx_map, spec_wvln, spec_bad_masks=None,
-                 all_phot_names=None):
+                 phot_names=None):
 
         self.stars = stars
         self.X = np.array(X)
@@ -28,9 +28,9 @@ class JoaquinData:
         if self.spec_bad_masks is not None:
             self.spec_bad_masks = np.array(self.spec_bad_masks)
 
-        if all_phot_names is None:
-            all_phot_names = default_phot_names
-        self.all_phot_names = np.array(all_phot_names)
+        self._phot_names = phot_names
+        if self._phot_names is not None:
+            self._phot_names = np.array(self._phot_names)
 
         stars_mask = np.all(np.isfinite(self.X), axis=1)
         if not np.all(stars_mask):
@@ -40,17 +40,24 @@ class JoaquinData:
                 'non-finite values. You must pass in a cleaned feature matrix '
                 'instead.')
 
-        assert len(self._idx_map['spec']) == len(self.spec_wvln)
-        assert len(self._idx_map['phot']) == len(self.all_phot_names)
         assert self.X.shape[0] == len(stars)
+        assert len(self._idx_map['spec']) == len(self.spec_wvln)
+
+        if 'phot' in self._idx_map:
+            if self._phot_names is None:
+                raise TypeError(
+                    "If photometric data is incuded in the feature matrix, "
+                    "you must pass in the names of the bands using "
+                    "'phot_names'")
+            assert len(self._idx_map['phot']) == len(self._phot_names)
 
     @classmethod
     def _parse_cache_file(cls, cache_file):
         cache_file = pathlib.Path(cache_file)
 
-        if not cache_file.suffix:  # only file basename passed in
-            cache_file = (root_cache_path / 'data' /
-                          cache_file.with_suffix(".hdf5"))
+        if not cache_file.suffix or cache_file.suffix != '.hdf5':
+            raise ValueError(
+                "Cache file must have a .hdf5 file type / extension.")
 
         cache_file = cache_file.resolve()
         logger.debug(f"Cache file parsed to: {str(cache_file)}")
@@ -59,8 +66,8 @@ class JoaquinData:
         return cache_file
 
     @classmethod
-    def from_stars(cls, stars, cache_file=None, overwrite=False,
-                   progress=True):
+    def from_stars(cls, config, stars, stars_to_X_func, cache_file=None,
+                   overwrite=False, progress=True):
 
         if cache_file is not None:
             cache_file = cls._parse_cache_file(cache_file)
@@ -89,7 +96,8 @@ class JoaquinData:
 
         # From here on, whether the cache file exists or not, we will build the
         # sample from the input stars!
-        X, idx_map, wvln, spec_masks = make_X(stars, progress=progress)
+        X, idx_map, wvln, spec_masks = stars_to_X_func(config, stars,
+                                                       progress=progress)
 
         stars_mask = np.all(np.isfinite(X), axis=1)
         obj = cls(stars[stars_mask], X[stars_mask], idx_map, wvln,
@@ -121,7 +129,7 @@ class JoaquinData:
 
             data['stars'] = at.Table.read(f['stars'])
 
-            data['all_phot_names'] = np.array(f.attrs['all_phot_names'])
+            data['phot_names'] = np.array(f.attrs['phot_names'])
 
         return cls(**data)
 
@@ -141,7 +149,7 @@ class JoaquinData:
 
             self.stars.write(f, path='stars', serialize_meta=False)
 
-            f.attrs['all_phot_names'] = list(self.all_phot_names)
+            f.attrs['phot_names'] = list(self._phot_names)
 
     def _replicate(self, X, stars=None, **kwargs):
         if stars is None:
@@ -150,7 +158,7 @@ class JoaquinData:
         kwargs.setdefault('idx_map', self._idx_map),
         kwargs.setdefault('spec_wvln', self.spec_wvln)
         kwargs.setdefault('spec_bad_masks', self.spec_bad_masks)
-        kwargs.setdefault('all_phot_names', self.all_phot_names)
+        kwargs.setdefault('phot_names', self._phot_names)
 
         return self.__class__(stars, X, **kwargs)
 
@@ -286,10 +294,10 @@ class JoaquinData:
         terms = list(terms)
 
         if phot_names is None:
-            phot_names = default_phot_names
+            phot_names = self._phot_names
 
         idx_map = self._idx_map.copy()
-        _, idx1, idx2 = np.intersect1d(self.all_phot_names, phot_names,
+        _, idx1, idx2 = np.intersect1d(self._phot_names, phot_names,
                                        return_indices=True)
         idx_map['phot'] = idx_map['phot'][idx1[idx2.argsort()]]
 
@@ -379,86 +387,9 @@ class JoaquinData:
         color_X = []
         for band1, band2 in colors:
             i1 = self._idx_map['phot'][np.argwhere(
-                self.all_phot_names == band1)[0][0]]
+                self._phot_names == band1)[0][0]]
             i2 = self._idx_map['phot'][np.argwhere(
-                self.all_phot_names == band2)[0][0]]
+                self._phot_names == band2)[0][0]]
             color_X.append(self.X[:, i1] - self.X[:, i2])
 
         return np.stack(color_X, axis=1)
-
-
-def make_X(stars, progress=True, X_dtype=np.float32, spec_fill_value=0.):
-    if progress:
-        iter_ = tqdm
-    else:
-        iter_ = iter
-
-    if stars is None:
-        raise ValueError(
-            "Input `stars` is None! You must pass a table of allStar data "
-            "using the `stars` argument to the initializer")
-
-    # First, figure out how many features we have:
-    for star in stars:
-        try:
-            wvln, flux, err = get_aspcapstar(star)
-            pix, lsf = get_lsf(star)
-
-            phot_f = get_phot_features(star)
-            lsf_f = get_lsf_features(lsf)
-            spec_f, mask = get_spec_features(wvln, flux, err,
-                                             fill_value=spec_fill_value)
-
-        except Exception:  # noqa
-            continue
-
-        Nlsf = len(lsf_f)
-        Nphot = len(phot_f)
-        Nspec = len(spec_f)
-
-        break
-
-    else:
-        raise RuntimeError("Failed to determine number of features")
-
-    Nstars = len(stars)
-    Nfeatures = Nphot + Nlsf + Nspec
-    X = np.full((Nstars, Nfeatures), np.nan, dtype=X_dtype)
-    spec_bad_masks = np.full((Nstars, Nspec), True, dtype=bool)
-    for i, star in enumerate(iter_(stars)):
-        try:
-            wvln, flux, err = get_aspcapstar(star)
-            pix, lsf = get_lsf(star)
-        except Exception as e:
-            logger.log(1,
-                       "failed to get aspcapStar or apStarLSF data for "
-                       f"star {i}\n{e}")
-            continue
-
-        try:
-            phot_f = get_phot_features(star)
-            lsf_f = get_lsf_features(lsf)
-            spec_f, spec_mask = get_spec_features(wvln, flux, err,
-                                                  fill_value=spec_fill_value)
-        except Exception as e:
-            logger.log(1, f"failed to get features for star {i}\n{e}")
-            continue
-
-        phot_idx = np.arange(Nphot, dtype=int)
-
-        last = phot_idx[-1] + 1
-        lsf_idx = np.arange(last, last + Nlsf, dtype=int)
-
-        last = lsf_idx[-1] + 1
-        spec_idx = np.arange(last, last + Nspec, dtype=int)
-
-        X[i] = np.concatenate((phot_f, lsf_f, spec_f))
-        spec_bad_masks[i] = spec_mask
-
-    idx_map = {
-        'phot': phot_idx,
-        'lsf': lsf_idx,
-        'spec': spec_idx
-    }
-
-    return X, idx_map, wvln, spec_bad_masks
