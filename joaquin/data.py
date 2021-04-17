@@ -18,6 +18,19 @@ class JoaquinData:
 
     def __init__(self, stars, X, idx_map, spec_wvln, spec_bad_masks=None,
                  phot_names=None):
+        """The main data storage container for passing to a Joaquin model
+
+        Parameters
+        ----------
+
+
+        TODO
+        ----
+        This could cache just the spec (and metadata, e.g., LSF) part of the
+        feature matrix, and reconstruct the full feature matrix with the
+        photometry and anything else the user wants at runtime...
+
+        """
 
         self.stars = stars
         self.X = np.array(X)
@@ -101,7 +114,8 @@ class JoaquinData:
 
         stars_mask = np.all(np.isfinite(X), axis=1)
         obj = cls(stars[stars_mask], X[stars_mask], idx_map, wvln,
-                  spec_bad_masks=spec_masks[stars_mask])
+                  spec_bad_masks=spec_masks[stars_mask],
+                  phot_names=config.phot_names)
 
         if cache_file is not None or overwrite:
             logger.debug(
@@ -129,7 +143,7 @@ class JoaquinData:
 
             data['stars'] = at.Table.read(f['stars'])
 
-            data['phot_names'] = np.array(f.attrs['phot_names'])
+            data['phot_names'] = np.array(f.attrs['phot_names']).astype(str)
 
         return cls(**data)
 
@@ -149,7 +163,7 @@ class JoaquinData:
 
             self.stars.write(f, path='stars', serialize_meta=False)
 
-            f.attrs['phot_names'] = list(self._phot_names)
+            f.attrs['phot_names'] = list(self._phot_names.astype('S'))
 
     def _replicate(self, X, stars=None, **kwargs):
         if stars is None:
@@ -346,14 +360,10 @@ class JoaquinData:
                 setattr(self, k, kwargs[k])
             return self
 
-    def get_neighborhood_X(self, color_names=None, renormalize_colors=True):
-        from .config import neighborhood_color_names
+    def get_neighborhood_X(self, color_names, renormalize_colors=True):
         from .filters import renormalize
 
         X, idx_map = self.get_X('spec')
-
-        if color_names is None:
-            color_names = neighborhood_color_names
 
         color_X = self.get_colors(color_names)
 
