@@ -7,6 +7,7 @@ def get_lsf_features(lsf):
     pix = np.arange(len(lsf))
 
     # BAG O' HACKS
+    # HACK: hard-coded for APOGEE
     locs = [500, 2500, 4000, 5600, 6600, 7900]  # MAGIC NUMBERs
     half_size = 50
 
