@@ -91,6 +91,12 @@ class Config:
     def parent_sample_cache_file(self):
         return self.output_path / 'parent-sample.hdf5'
 
+    @property
+    def plot_path(self):
+        path = self.output_path / 'plots'
+        path.mkdir(exist_ok=True)
+        return path
+
     # -------------------------------------------------------------------------
     # Special methods
     #
