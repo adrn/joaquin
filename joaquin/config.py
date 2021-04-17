@@ -65,7 +65,7 @@ class Config:
                 kw[k] = v.expanduser().absolute()
 
         # Validate:
-        allowed_None_names = ['input_data_format']
+        allowed_None_names = ['seed']
         for field in fields(self):
             val = kw[field.name]
             if (not isinstance(val, field.type)
@@ -76,11 +76,19 @@ class Config:
 
             setattr(self, field.name, val)
 
+        # Make sure output file path exists:
+        self.output_path.mkdir(parents=True, exist_ok=True)
+
     # -------------------------------------------------------------------------
     # File paths
     #
+
     @property
-    def parent_sample_file(self):
+    def parent_sample_source_file(self):
+        return self.output_path / 'parent-sample.fits'
+
+    @property
+    def parent_sample_cache_file(self):
         return self.output_path / 'parent-sample.hdf5'
 
     # -------------------------------------------------------------------------
