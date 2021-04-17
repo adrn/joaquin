@@ -1,77 +1,86 @@
-import os
+# Standard library
+from dataclasses import dataclass, fields
 import pathlib
 
-###############################################################################
-# Joaquin
+# Third-party
+import yaml
 
-# Photometric colors used in the neighborhood construction:
-neighborhood_color_names = [
-    ('phot_bp_mean_mag', 'phot_rp_mean_mag'),
-    ('phot_rp_mean_mag', 'w1mpro'),
-    ('H', 'w2mpro'),
-    ('w1mpro', 'w2mpro')
-]
+# Project
+# from .logger import logger
 
-# Photometric measurements used by the model
-phot_names = [
-    'phot_g_mean_mag',
-    'phot_bp_mean_mag',
-    'phot_rp_mean_mag',
-    'J', 'H', 'K',
-    'w1mpro', 'w2mpro'
-]
+__all__ = ['Config']
 
-# Number of PCA components to use for making the neighborhoods:
-neighborhood_n_components = 8
 
-# Maximum size of the larger neighborhood around each "stoop":
-max_neighborhood_size = 32768
+@dataclass
+class Config:
+    output_path: (str, pathlib.Path) = None
+    apogee_cache_path: (str, pathlib.Path) = None
 
-# Size of the testing subsample (the "block") around each "stoop":
-block_size = 1024
+    neighborhood_pca_components: int = None
+    max_neighborhood_size: int = None
+    block_size: int = None
+    Kfold_K: int = None
+    patching_pca_components: int = None
 
-# For cross-validation:
-Kfold_K = 4
+    seed: int = None
 
-# Number of PCA components to use to patch the missing spectral pixels:
-patching_n_components = 8
+    def __init__(self, filename):
+        self._load_validate_config_values(filename)
+        # self._cache = {}
 
-###############################################################################
-# APOGEE DATA / CACHING
+    def _load_validate_config_values(self, filename):
+        filename = pathlib.Path(filename).expanduser().absolute()
+        if not filename.exists():
+            raise IOError(f"Config file {str(filename)} does not exist.")
 
-# What APOGEE data reduction are we using?
-dr = 'dr17'
-reduction = 'dr17'
+        with open(filename, 'r') as f:
+            vals = yaml.safe_load(f.read())
 
-# Path to a /.../apogee folder to download the data to
-APOGEE_CACHE_PATH = pathlib.Path(os.environ.get(
-    "APOGEE_CACHE_PATH",
-    pathlib.Path.home() / ".apogee")).expanduser().resolve()
+        # Validate types:
+        kw = {}
+        for field in fields(self):
+            default = field.default
+            if field.name == 'output_path':
+                default = filename.parent
 
-JOAQUIN_OUTPUT_PATH = os.environ.get("JOAQUIN_OUTPUT_PATH")
-if JOAQUIN_OUTPUT_PATH is not None:
-    JOAQUIN_OUTPUT_PATH = pathlib.Path(JOAQUIN_OUTPUT_PATH)
+            val = vals.get(field.name, None)
+            if val is None:
+                val = default
 
-# Load authentication for SDSS
-sdss_auth_file = pathlib.Path('~/.sdss.login').expanduser()
-if sdss_auth_file.exists():
-    with open(sdss_auth_file, 'r') as f:
-        sdss_auth = f.readlines()
-    sdss_auth = tuple([s.strip() for s in sdss_auth if len(s.strip()) > 0])
-else:
-    sdss_auth = None
+            if val is not None and (field.name.endswith('_file')
+                                    or field.name.endswith('_path')):
+                val = pathlib.Path(val)
 
-# All photometric data column names:
-all_phot_names = [
-    'phot_g_mean_mag',
-    'phot_bp_mean_mag',
-    'phot_rp_mean_mag',
-    'J', 'H', 'K',
-    'w1mpro', 'w2mpro', 'w3mpro', 'w4mpro'
-]
+            kw[field.name] = val
 
-###############################################################################
-# Logging configuration
+        # Normalize paths:
+        for k, v in kw.items():
+            if isinstance(v, pathlib.Path):
+                kw[k] = v.expanduser().absolute()
 
-logger_level = 1  # show all messages
-# logger_level = 20  # INFO
+        # Validate:
+        allowed_None_names = ['input_data_format']
+        for field in fields(self):
+            val = kw[field.name]
+            if (not isinstance(val, field.type)
+                    and field.name not in allowed_None_names):
+                msg = (f"Config field '{field.name}' has type {type(val)}, "
+                       f"but should be one of: {field.type}")
+                raise ValueError(msg)
+
+            setattr(self, field.name, val)
+
+    # -------------------------------------------------------------------------
+    # File paths
+    #
+    @property
+    def parent_sample_file(self):
+        return self.output_path / 'parent-sample.hdf5'
+
+    # -------------------------------------------------------------------------
+    # Special methods
+    #
+    # def __getstate__(self):
+    #     """Ensure that the cache does not get pickled with the object"""
+    #     state = {k: v for k, v in self.__dict__.items() if k != '_cache'}
+    #     return state.copy()
