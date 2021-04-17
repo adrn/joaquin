@@ -2,6 +2,9 @@
 
 Stellar model-free spectrophotometric parallaxes.
 
+Currently only works for APOGEE data files and directory structures, but can be
+made more generic!
+
 ``Joaquin`` loves
 [HER](https://ui.adsabs.harvard.edu/abs/2019AJ....158..147H/abstract)
 
