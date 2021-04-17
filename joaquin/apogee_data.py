@@ -61,8 +61,8 @@ def get_lsf(config, star):
     return pix, lsf
 
 
-def make_X(config, stars, progress=True, X_dtype=np.float32,
-           spec_fill_value=0.):
+def make_apogee_X(config, stars, progress=True, X_dtype=np.float32,
+                  spec_fill_value=0.):
 
     if progress:
         iter_ = tqdm
@@ -80,7 +80,7 @@ def make_X(config, stars, progress=True, X_dtype=np.float32,
             wvln, flux, err = get_aspcapstar(config, star)
             pix, lsf = get_lsf(config, star)
 
-            phot_f = get_phot_features(star)
+            phot_f = get_phot_features(star, config.phot_names)
             lsf_f = get_lsf_features(lsf)
             spec_f, mask = get_spec_features(wvln, flux, err,
                                              fill_value=spec_fill_value)
@@ -112,7 +112,7 @@ def make_X(config, stars, progress=True, X_dtype=np.float32,
             continue
 
         try:
-            phot_f = get_phot_features(star)
+            phot_f = get_phot_features(star, config.phot_names)
             lsf_f = get_lsf_features(lsf)
             spec_f, spec_mask = get_spec_features(wvln, flux, err,
                                                   fill_value=spec_fill_value)
