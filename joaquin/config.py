@@ -14,7 +14,10 @@ __all__ = ['Config']
 @dataclass
 class Config:
     output_path: (str, pathlib.Path) = None
+
     apogee_cache_path: (str, pathlib.Path) = None
+    apogee_dr: str = None
+    apogee_reduction: str = None
 
     neighborhood_pca_components: int = None
     max_neighborhood_size: int = None
