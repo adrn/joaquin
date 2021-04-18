@@ -54,13 +54,16 @@ class CLI:
         # HACK
         parser.usage = 'joaquin run' + parser.format_usage()[9:]
 
-        parser.add_argument("-s", "--seed", dest="seed", default=None,
-                            type=int, help="Random number seed")
+        parser.add_argument("-i", "--index", dest="neighborhood_index",
+                            default=None, type=int,
+                            help="If specified, run on just one neighborhood, "
+                                 "with the index provided.")
 
         args = parser.parse_args(sys.argv[2:])
 
         with args.Pool(**args.Pool_kwargs) as pool:
-            run_pipeline(args.config_file, pool=pool)
+            run_pipeline(args.config_file, pool=pool,
+                         neighborhood_index=args.neighborhood_index)
 
         sys.exit(0)
 
