@@ -19,6 +19,8 @@ class Config:
     apogee_dr: str = None
     apogee_reduction: str = None
 
+    parallax_zpt: float = None
+
     phot_names: list = None
 
     neighborhood_pca_components: int = None
@@ -27,6 +29,8 @@ class Config:
     block_size: int = None
     Kfold_K: int = None
     patching_pca_components: int = None
+
+    optimize_train_maxiter: int = None
 
     seed: int = None
 
@@ -90,6 +94,10 @@ class Config:
     @property
     def parent_sample_cache_file(self):
         return self.output_path / 'parent-sample.hdf5'
+
+    @property
+    def neighborhood_index_file(self):
+        return self.output_path / 'good_parent_neighborhood_indices.npy'
 
     @property
     def plot_path(self):
