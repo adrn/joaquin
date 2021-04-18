@@ -20,14 +20,14 @@ def worker(task):
 
     rng = np.random.default_rng(seed)
 
-    plot_path = root_plot_path / worker_id
-    cache_path = conf.output_path / 'cache' / worker_id
+    plot_path = root_plot_path / str(worker_id)
+    cache_path = conf.output_path / 'cache' / str(worker_id)
     plot_path.mkdir(exist_ok=True)
     cache_path.mkdir(exist_ok=True, parents=True)
 
     # TODO: 0.25 is a MAGIC NUMBER and should be configurable
     spec_bad_mask = (data.spec_bad_masks.sum(axis=0) / len(data.stars)) > 0.25
-    patched_data = data.patch_spec()
+    patched_data = data.patch_spec(conf.patching_pca_components)
 
     # Mask out the globally bad pixels
     patched_data.spec_bad_masks = None
@@ -249,23 +249,29 @@ def worker(task):
 
 
 def run_pipeline(config_file, pool, neighborhood_index=None):
-    conf = Config('../config.yml')
+    conf = Config(config_file)
 
     plot_path = conf.plot_path / 'pipeline'
     plot_path.mkdir(exist_ok=True)
 
+    logger.debug("Loading parent sample cache file...")
     parent = JoaquinData.read(conf.parent_sample_cache_file)
+
+    logger.debug("Parent sample cache file loaded - selecting finite data...")
     parent = parent[np.all(np.isfinite(parent.X), axis=1)]
 
     # Load all parent sample neighborhood indices:
     # (generated in 2-Neighborhoods-PCA.ipynb)
+    logger.debug("Loading neighborhood index file...")
     neighborhood_indices = np.load(conf.neighborhood_index_file)
+    stoop_ids = np.arange(len(neighborhood_indices))
 
     if neighborhood_index is not None:
         neighborhood_indices = [neighborhood_indices[neighborhood_index]]
+        stoop_ids = [neighborhood_index]
 
     tasks = [
-        (i, conf, parent[neighborhood_indices[i]], plot_path)
+        (stoop_ids[i], conf, parent[neighborhood_indices[i]], plot_path)
         for i in range(len(neighborhood_indices))]
 
     seedseq = np.random.SeedSequence(conf.seed)

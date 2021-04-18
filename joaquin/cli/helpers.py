@@ -68,9 +68,6 @@ def get_parser(description="", loggers=None, multiproc_options=True):
             parsed.Pool = Pool
             parsed.Pool_kwargs = kw
 
-            # Make sure run path is a path
-            parsed.run_path = pathlib.Path(parsed.run_path)
-
             return parsed
 
     # Define parser object
