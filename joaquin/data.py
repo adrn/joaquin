@@ -246,22 +246,21 @@ class JoaquinData:
                           spec_wvln=self.spec_wvln[~spec_bad_mask],
                           copy=copy)
 
-    def patch_spec(self, patching_n_components=None):
-        from .config import (patching_n_components
-                             as default_patching_n_components)
+    def patch_spec(self, patching_pca_components, pca=None):
+        if pca is None:
+            pca = PCA(n_components=patching_pca_components)
 
-        if patching_n_components is None:
-            patching_n_components = default_patching_n_components
+            spec_X = self.get_X('spec')[0].copy()
+            subX_pca = pca.fit_transform(spec_X)
 
-        pca = PCA(n_components=patching_n_components)
+        else:
+            subX_pca = pca.transform(spec_X)
 
-        spec_X = self.get_X('spec')[0].copy()
-        subX_pca = pca.fit_transform(spec_X)
         tmp_patched = pca.inverse_transform(subX_pca)
 
         spec_X[spec_X == 0] = tmp_patched[spec_X == 0]
 
-        return self.put_X('spec', sub_X=spec_X)
+        return self.put_X('spec', sub_X=spec_X), pca
 
     def lowpass_filter_spec(self, fcut_factor=1., progress=True,
                             fill_value=0., copy=True):
