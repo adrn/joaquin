@@ -1,13 +1,6 @@
 # Standard library
 import argparse
-import os
-import pathlib
-import shutil
 import sys
-
-# Third-party
-import numpy as np
-from threadpoolctl import threadpool_limits
 
 # Package
 from .helpers import get_parser
@@ -42,7 +35,8 @@ class CLI:
     #         multiproc_options=False)
 
     #     # HACK
-    #     parser.usage = 'joaquin make_neighborhoods' + parser.format_usage()[9:]
+    #     parser.usage = ('joaquin make_neighborhoods' +
+    #                     parser.format_usage()[9:])
     #     args = parser.parse_args(sys.argv[2:])
     #     make_neighborhoods(args.config_file)
 
