@@ -1,11 +1,10 @@
 from argparse import ArgumentParser
 import logging
-import os
 import pathlib
 
 from astropy.utils.misc import isiterable
 
-from ..log import logger
+from ..logger import logger
 
 
 __all__ = ['get_parser']

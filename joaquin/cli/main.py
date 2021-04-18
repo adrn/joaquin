@@ -52,7 +52,7 @@ class CLI:
             loggers=[logger])
 
         # HACK
-        parser.usage = 'joaquin run' + parser.format_usage()[9:]
+        parser.usage = 'joaquin run' + parser.format_usage()[14:]
 
         parser.add_argument("-i", "--index", dest="neighborhood_index",
                             default=None, type=int,
