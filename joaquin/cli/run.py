@@ -227,6 +227,7 @@ def worker(task):
     stars['H_W2'] = stars['H'] - stars['w2mpro']
     pred_plx = joa.model_y(train_X, **fit_pars)
 
+    xlim = (-0.5, train_y.max() + 0.1)
     for color_by, ax in zip(['LOGG', 'TEFF', 'M_H', 'H_W2'], axes.flat):
         c = stars[color_by]
         ax.scatter(train_y + fit_pars['parallax_zpt'],
@@ -235,7 +236,11 @@ def worker(task):
                    marker='o', s=2, alpha=0.75)
         ax.set_title(color_by)
 
-    ax.set_xlim(-0.5, train_y.max() + 0.1)
+        _grid = np.linspace(*xlim, 128)
+        ax.plot(_grid, _grid, marker='', zorder=-10,
+                color='tab:green', alpha=0.4)
+
+    ax.set_xlim(xlim)
     ax.set_ylim(ax.get_xlim())
 
     for ax in axes[-1]:
