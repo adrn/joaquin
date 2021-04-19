@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 import logging
-import pathlib
 
 from astropy.utils.misc import isiterable
 
