@@ -20,8 +20,8 @@ def worker(task):
 
     rng = np.random.default_rng(seed)
 
-    plot_path = root_plot_path / str(worker_id)
-    cache_path = conf.output_path / 'cache' / str(worker_id)
+    plot_path = root_plot_path / f"{worker_id:03d}"
+    cache_path = conf.output_path / 'cache' / f"{worker_id:03d}"
     plot_path.mkdir(exist_ok=True)
     cache_path.mkdir(exist_ok=True, parents=True)
 
@@ -176,6 +176,7 @@ def worker(task):
     fit_pars = joa.unpack_pars(res.x)
     with open(cache_path / 'fit_pars.pkl', 'wb') as f:
         pickle.dump(fit_pars, f)
+
     logger.debug(f"Neighborhood {worker_id}: Optimize result \n{res}")
 
     for key in ['phot', 'lsf', 'spec']:
