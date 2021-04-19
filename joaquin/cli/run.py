@@ -27,11 +27,11 @@ def worker(task):
 
     # TODO: 0.25 is a MAGIC NUMBER and should be configurable
     spec_bad_mask = (data.spec_bad_masks.sum(axis=0) / len(data.stars)) > 0.25
-    patched_data = data.patch_spec(conf.patching_pca_components)
+    patched_data, patch_pca = data.patch_spec(conf.patching_pca_components)
 
     # Mask out the globally bad pixels
     patched_data.spec_bad_masks = None
-    patched_data, patch_pca = patched_data.mask_spec_pixels(spec_bad_mask)
+    patched_data = patched_data.mask_spec_pixels(spec_bad_mask)
 
     # Need to save "spec_bad_mask", and the PCA used to do patching so
     # that we can apply the model to stars that aren't in the neighborhood, but
@@ -66,7 +66,7 @@ def worker(task):
     # Cross-validate L2_ivar and training area size:
     data = lowpass_data
     train_mask = np.argwhere(
-        lowpass_data.stars['GAIAEDR3_PARALLAX_ERROR'] < 0.1  # TODO: hard-coded
+        lowpass_data.stars['parallax_error'] < 0.1  # TODO: hard-coded
     ).ravel()
     L2_ivar_vals = 10 ** np.arange(0., 5+1, 0.5)  # TODO: hard-coded
     train_sizes = np.array([4096, 8192, 16384, 32768])  # TODO: hard-coded
@@ -90,13 +90,13 @@ def worker(task):
 
             test_block = data[test_idx]
             test_X, _ = test_block.get_X(phot_names=conf.phot_names)
-            test_y = test_block.stars['GAIAEDR3_PARALLAX']
-            test_y_ivar = 1 / test_block.stars['GAIAEDR3_PARALLAX_ERROR'] ** 2
+            test_y = test_block.stars['parallax']
+            test_y_ivar = 1 / test_block.stars['parallax_error'] ** 2
 
             train_block = data[train_idx]
             train_X, idx_map = train_block.get_X(phot_names=conf.phot_names)
-            train_y = train_block.stars['GAIAEDR3_PARALLAX']
-            train_y_ivar = 1 / train_block.stars['GAIAEDR3_PARALLAX_ERROR'] ** 2
+            train_y = train_block.stars['parallax']
+            train_y_ivar = 1 / train_block.stars['parallax_error'] ** 2
 
             joa = Joaquin(
                 train_X,
@@ -159,8 +159,8 @@ def worker(task):
 
     train_data = data[train_mask[:cross_val_train_size]]
     train_X, idx_map = train_data.get_X(phot_names=conf.phot_names)
-    train_y = train_data.stars['GAIAEDR3_PARALLAX']
-    train_y_ivar = 1 / train_data.stars['GAIAEDR3_PARALLAX_ERROR'] ** 2
+    train_y = train_data.stars['parallax']
+    train_y_ivar = 1 / train_data.stars['parallax_error'] ** 2
 
     joa = Joaquin(
         train_X,
@@ -345,3 +345,4 @@ def plot_2D_mean_diff(data):
     ax.set_ylabel('spectra - mean, ordered by LOGG')
 
     fig.tight_layout()
+    return fig
