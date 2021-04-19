@@ -50,13 +50,13 @@ def worker(task):
     tmp, _ = data.get_X('spec')
     npix_fixed = (tmp[:, ~spec_bad_mask] == 0).sum()
     tmp_patched, _ = patched_data.get_X('spec')
-    assert (tmp_patched == 0).sum() == 0
+    # assert (tmp_patched == 0).sum() == 0
 
     logger.info(f"Neighborhood {worker_id}: {npix_fixed} pixels patched, "
                 f"~{npix_fixed/tmp.shape[0]:.0f} pixels patched per star")
 
     # Low-pass filter the spectra:
-    lowpass_data = patched_data.lowpass_filter_spec()
+    lowpass_data = patched_data.lowpass_filter_spec(progress=False)
 
     fig = plot_2D_mean_diff(lowpass_data[(lowpass_data.stars['SNR'] > 300) &
                                          (lowpass_data.stars['LOGG'] > -1)])
