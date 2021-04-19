@@ -174,6 +174,8 @@ def worker(task):
     res = joa.optimize(init=init,
                        options={'maxiter': conf.optimize_train_maxiter})
     fit_pars = joa.unpack_pars(res.x)
+    with open(cache_path / 'fit_pars.pkl', 'wb') as f:
+        pickle.dump(fit_pars, f)
     logger.debug(f"Neighborhood {worker_id}: Optimize result \n{res}")
 
     for key in ['phot', 'lsf', 'spec']:
