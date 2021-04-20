@@ -20,8 +20,8 @@ def worker(task):
 
     rng = np.random.default_rng(seed)
 
-    plot_path = root_plot_path / f"{worker_id:03d}"
-    cache_path = conf.output_path / 'cache' / f"{worker_id:03d}"
+    plot_path = root_plot_path / f"{worker_id:04d}"
+    cache_path = conf.output_path / 'cache' / f"{worker_id:04d}"
     plot_path.mkdir(exist_ok=True)
     cache_path.mkdir(exist_ok=True, parents=True)
 
@@ -79,7 +79,7 @@ def worker(task):
     for i, train_size in enumerate(train_sizes):
 
         for k, (train_joa, test_joa) in enumerate(Kfold_train_test_split(
-                conf, data, K=conf.Kfold_K,
+                conf, data, K=conf.Kfold_K, block_size=conf.block_size,
                 train_mask=train_mask[:train_size], rng=rng)):
 
             for j, L2_ivar in enumerate(L2_ivar_vals):
@@ -129,25 +129,14 @@ def worker(task):
     frozen = {'L2_ivar': cross_val_L2_ivar,
               'parallax_zpt': conf.parallax_zpt}
 
-    # TODO: now K-fold train/test splits again: maybe again K=4, where we test
-    # on 1/4 of the full training set, successively??
-
+    # Optimize over full training set to determine parameters for this stoop
     train_data = data[train_mask[:cross_val_train_size]]
-    train_X, idx_map = train_data.get_X(phot_names=conf.phot_names)
-    train_y = train_data.stars['parallax']
-    train_y_ivar = 1 / train_data.stars['parallax_error'] ** 2
-
-    joa = Joaquin(
-        train_X,
-        train_y,
-        train_y_ivar,
-        idx_map,
-        frozen=frozen)
-
-    init = joa.init(parallax_zpt=frozen.get('parallax_zpt', conf.parallax_zpt),
+    joa = Joaquin.from_data(conf, train_data, frozen=frozen)
+    init = joa.init(parallax_zpt=frozen['parallax_zpt'],
                     pack=False)
     res = joa.optimize(init=init,
                        options={'maxiter': conf.optimize_train_maxiter})
+
     fit_pars = joa.unpack_pars(res.x)
     with open(cache_path / 'fit_pars.pkl', 'wb') as f:
         pickle.dump(fit_pars, f)
@@ -161,14 +150,14 @@ def worker(task):
         if key == 'phot':
             xx = [phot_to_label[x] for x in conf.phot_names]
         else:
-            xx = np.arange(len(idx_map[key]))
+            xx = np.arange(len(joa.idx_map[key]))
 
-        ax.plot(xx, init['beta'][idx_map[key]])
-        ax.plot(xx, fit_pars['beta'][idx_map[key]])
+        ax.plot(xx, init['beta'][joa.idx_map[key]])
+        ax.plot(xx, fit_pars['beta'][joa.idx_map[key]])
 
         axes[1].plot(
             xx,
-            fit_pars['beta'][idx_map[key]] - init['beta'][idx_map[key]])
+            fit_pars['beta'][joa.idx_map[key]] - init['beta'][joa.idx_map[key]])
 
         axes[0].set_title(key)
         axes[1].set_ylabel('optimized - init', fontsize=14)
@@ -182,13 +171,14 @@ def worker(task):
     fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
 
     ax = axes[0]
-    xx = np.arange(len(idx_map[key]))
+    xx = np.arange(len(joa.idx_map[key]))
 
-    ax.plot(xx, init['beta'][idx_map[key]])
-    ax.plot(xx, fit_pars['beta'][idx_map[key]])
+    ax.plot(xx, init['beta'][joa.idx_map[key]])
+    ax.plot(xx, fit_pars['beta'][joa.idx_map[key]])
 
     axes[1].plot(xx,
-                 fit_pars['beta'][idx_map[key]] - init['beta'][idx_map[key]])
+                 fit_pars['beta'][joa.idx_map[key]] -
+                 init['beta'][joa.idx_map[key]])
 
     axes[0].set_title(key)
     axes[1].set_ylabel('optimized - init', fontsize=14)
@@ -203,12 +193,12 @@ def worker(task):
 
     stars = train_data.stars
     stars['H_W2'] = stars['H'] - stars['w2mpro']
-    pred_plx = joa.model_y(train_X, **fit_pars)
+    pred_plx = joa.model_y(joa.X, **fit_pars)
 
-    xlim = (-0.5, train_y.max() + 0.1)
+    xlim = (-0.5, joa.y.max() + 0.1)
     for color_by, ax in zip(['LOGG', 'TEFF', 'M_H', 'H_W2'], axes.flat):
         c = stars[color_by]
-        ax.scatter(train_y + fit_pars['parallax_zpt'],
+        ax.scatter(joa.y + fit_pars['parallax_zpt'],
                    pred_plx,
                    c=c,
                    marker='o', s=2, alpha=0.75)
@@ -229,6 +219,22 @@ def worker(task):
     fig.tight_layout()
     fig.savefig(plot_path / 'training_plx_vs_plx.png', dpi=200)
     plt.close(fig)
+
+    ##########################################################################
+    # Validation:
+    # Now do K-fold train/test splits again to validate
+    # TODO: should this be a different K than we use for cross-validation?
+    for k, (train_joa, test_joa) in enumerate(Kfold_train_test_split(
+            conf, data, K=conf.Kfold_K, rng=rng,
+            train_mask=train_mask[:cross_val_train_size],
+            Joaquin_kwargs=dict(frozen=frozen))):
+
+        k_res = train_joa.optimize(
+            init=fit_pars, options={'maxiter': conf.Kfold_test_maxiter})
+
+        k_fit_pars = joa.unpack_pars(res.x)
+
+        # TODO: do stuff
 
 
 def run_pipeline(config_file, pool, neighborhood_index=None):
