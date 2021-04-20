@@ -38,6 +38,13 @@ class Joaquin:
             frozen = {}
         self.frozen = frozen
 
+    @classmethod
+    def from_data(self, config, data, **kwargs):
+        X, idx_map = data.get_X(phot_names=config.phot_names)
+        y = data.stars['parallax']
+        y_ivar = 1 / data.stars['parallax_error'] ** 2
+        return Joaquin(X, y, y_ivar, idx_map, **kwargs)
+
     def unpack_pars(self, par_list):
         i = 0
         par_dict = {}

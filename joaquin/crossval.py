@@ -75,7 +75,7 @@ def get_Kfold_indices(K, train_mask, block_size=None, rng=None):
     return train_batches, test_batches
 
 
-def Kfold_train_test_split(config, data, K, **kwargs):
+def Kfold_train_test_split(config, data, K, Joaquin_kwargs=None, **kwargs):
     """Generate K train/test data subsets using ``get_Kfold_indices()``
 
     Parameters
@@ -90,30 +90,12 @@ def Kfold_train_test_split(config, data, K, **kwargs):
     """
     train_idxs, test_idxs = get_Kfold_indices(K=K, **kwargs)
 
+    if Joaquin_kwargs is None:
+        Joaquin_kwargs = dict()
+
     for k in range(K):
-        train_idx = train_idxs[k]
-        test_idx = test_idxs[k]
-
-        test_block = data[test_idx]
-        test_X, _ = test_block.get_X(phot_names=config.phot_names)
-        test_y = test_block.stars['parallax']
-        test_y_ivar = 1 / test_block.stars['parallax_error'] ** 2
-
-        train_block = data[train_idx]
-        train_X, idx_map = train_block.get_X(phot_names=config.phot_names)
-        train_y = train_block.stars['parallax']
-        train_y_ivar = 1 / train_block.stars['parallax_error'] ** 2
-
-        train_joa = Joaquin(
-            train_X,
-            train_y,
-            train_y_ivar,
-            idx_map)
-
-        test_joa = Joaquin(
-            test_X,
-            test_y,
-            test_y_ivar,
-            idx_map)
-
+        train_joa = Joaquin.from_data(config, data[train_idxs[k]],
+                                      **Joaquin_kwargs)
+        test_joa = Joaquin.from_data(config, data[test_idxs[k]],
+                                     **Joaquin_kwargs)
         yield train_joa, test_joa
