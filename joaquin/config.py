@@ -31,6 +31,7 @@ class Config:
     patching_pca_components: int = None
 
     optimize_train_maxiter: int = None
+    Kfold_test_maxiter: int = None
 
     seed: int = None
 
