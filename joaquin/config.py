@@ -100,6 +100,10 @@ class Config:
         return self.output_path / 'good_parent_neighborhood_indices.npy'
 
     @property
+    def parent_closest_stoop_file(self):
+        return self.output_path / 'parent_closest_stoop.npz'
+
+    @property
     def plot_path(self):
         path = self.output_path / 'plots'
         path.mkdir(exist_ok=True)
