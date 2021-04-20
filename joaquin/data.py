@@ -127,6 +127,7 @@ class JoaquinData:
 
     @classmethod
     def read(cls, cache_file):
+        # TODO: add "idx" option, to only read a block using pytables
         cache_file = cls._parse_cache_file(cache_file)
 
         data = {}

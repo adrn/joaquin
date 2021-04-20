@@ -5,6 +5,7 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import binned_statistic_2d
+import yaml
 
 # Joaquin
 from joaquin import Joaquin
@@ -12,7 +13,7 @@ from joaquin.data import JoaquinData
 from joaquin.config import Config
 from joaquin.logger import logger
 from joaquin.plot import phot_to_label
-from joaquin.crossval import Kfold_train_test_split
+from joaquin.crossval import Kfold_train_test_split, get_Kfold_indices
 
 
 def worker(task):
@@ -57,6 +58,7 @@ def worker(task):
 
     # Low-pass filter the spectra:
     lowpass_data = patched_data.lowpass_filter_spec(progress=False)
+    data = lowpass_data
 
     fig = plot_2D_mean_diff(lowpass_data[(lowpass_data.stars['SNR'] > 300) &
                                          (lowpass_data.stars['LOGG'] > -1)])
@@ -64,63 +66,76 @@ def worker(task):
     plt.close(fig)
 
     # Cross-validate L2_ivar and training area size:
-    data = lowpass_data
-    train_mask = np.argwhere(
-        data.stars['parallax_error'] < 0.1  # TODO: hard-coded
-    ).ravel()
-    L2_ivar_vals = 10 ** np.arange(0., 5+1, 0.5)  # TODO: hard-coded
-    train_sizes = np.array([4096, 8192, 16384, 32768])  # TODO: hard-coded
+    crossval_file = cache_path / 'crossval_best.yml'
 
-    train_lls = np.full((len(train_sizes), conf.Kfold_K, len(L2_ivar_vals)),
-                        np.nan)
-    test_lls = np.full((len(train_sizes), conf.Kfold_K, len(L2_ivar_vals)),
-                       np.nan)
+    if not crossval_file.exists():
+        L2_ivar_vals = 10 ** np.arange(0., 5+1, 0.5)  # TODO: hard-coded
+        train_sizes = np.array([4096, 8192, 16384, 32768])  # TODO: hard-coded
 
-    for i, train_size in enumerate(train_sizes):
+        train_lls = np.full((len(train_sizes), conf.Kfold_K, len(L2_ivar_vals)),
+                            np.nan)
+        test_lls = np.full((len(train_sizes), conf.Kfold_K, len(L2_ivar_vals)),
+                           np.nan)
 
-        for k, (train_joa, test_joa) in enumerate(Kfold_train_test_split(
-                conf, data, K=conf.Kfold_K, block_size=conf.block_size,
-                train_mask=train_mask[:train_size], rng=rng)):
+        for i, train_size in enumerate(train_sizes):
 
-            for j, L2_ivar in enumerate(L2_ivar_vals):
-                frozen = {'L2_ivar': L2_ivar,
-                          'parallax_zpt': conf.parallax_zpt}
+            for k, (train_joa, test_joa) in enumerate(Kfold_train_test_split(
+                    conf, data[:train_size], K=conf.Kfold_K,
+                    block_size=conf.block_size, rng=rng)):
 
-                init_beta = train_joa.init_beta(**frozen)
+                for j, L2_ivar in enumerate(L2_ivar_vals):
+                    frozen = {'L2_ivar': L2_ivar,
+                              'parallax_zpt': conf.parallax_zpt}
 
-                test_lls[i, k, j] = test_joa.ln_likelihood(beta=init_beta,
-                                                           **frozen)[0]
-                train_lls[i, k, j] = train_joa.ln_likelihood(beta=init_beta,
-                                                             **frozen)[0]
+                    init_beta = train_joa.init_beta(**frozen)
 
-    # Mean (could sum here) the cross-validation scores
-    train_ll = np.mean(train_lls, axis=1)
-    test_ll = np.mean(test_lls, axis=1)
+                    test_lls[i, k, j] = test_joa.ln_likelihood(beta=init_beta,
+                                                               **frozen)[0]
+                    train_lls[i, k, j] = train_joa.ln_likelihood(beta=init_beta,
+                                                                 **frozen)[0]
 
-    # Plot the cross-validation scores:
-    L2_ivar_vals_2d, train_sizes_2d = np.meshgrid(L2_ivar_vals, train_sizes)
-    fig, axes = plt.subplots(2, 1, figsize=(10, 6),
-                             sharex=True, sharey=True,
-                             constrained_layout=True)
+        # Mean (could sum here) the cross-validation scores
+        train_ll = np.mean(train_lls, axis=1)
+        test_ll = np.mean(test_lls, axis=1)
 
-    for ax, ll, name in zip(axes, [test_ll, train_ll], ['test', 'train']):
-        cs = ax.scatter(L2_ivar_vals_2d, train_sizes_2d,
-                        c=ll,
-                        vmin=np.percentile(ll, 25),
-                        vmax=np.percentile(ll, 99.5),
-                        marker='s', s=500, cmap='Spectral')
-        ax.set_title(name)
-        fig.colorbar(cs, ax=ax, aspect=20)
-        ax.set_ylabel('train size')
+        # Plot the cross-validation scores:
+        L2_ivar_vals_2d, train_sizes_2d = np.meshgrid(L2_ivar_vals, train_sizes)
+        fig, axes = plt.subplots(2, 1, figsize=(10, 6),
+                                 sharex=True, sharey=True,
+                                 constrained_layout=True)
 
-    ax.set_xscale('log')
-    ax.set_yscale('log', base=2)
-    ax.set_xlabel('L2 ivar')
-    fig.savefig(plot_path / 'crossval_L2ivar_trainsize.png', dpi=200)
-    plt.close(fig)
+        for ax, ll, name in zip(axes, [test_ll, train_ll], ['test', 'train']):
+            cs = ax.scatter(L2_ivar_vals_2d, train_sizes_2d,
+                            c=ll,
+                            vmin=np.percentile(ll, 25),
+                            vmax=np.percentile(ll, 99.5),
+                            marker='s', s=500, cmap='Spectral')
+            ax.set_title(name)
+            fig.colorbar(cs, ax=ax, aspect=20)
+            ax.set_ylabel('train size')
 
-    cross_val_L2_ivar = L2_ivar_vals_2d.ravel()[test_ll.argmax()]
-    cross_val_train_size = train_sizes_2d.ravel()[test_ll.argmax()]
+        ax.set_xscale('log')
+        ax.set_yscale('log', base=2)
+        ax.set_xlabel('L2 ivar')
+        fig.savefig(plot_path / 'crossval_L2ivar_trainsize.png', dpi=200)
+        plt.close(fig)
+
+        cross_val_L2_ivar = L2_ivar_vals_2d.ravel()[test_ll.argmax()]
+        cross_val_train_size = train_sizes_2d.ravel()[test_ll.argmax()]
+
+        with open(crossval_file, 'w') as f:
+            f.write(yaml.dump({
+                'L2_ivar': cross_val_L2_ivar,
+                'train_size': cross_val_train_size
+            }))
+
+    else:
+        with open(crossval_file, 'r') as f:
+            tmp = yaml.safe_load(f.read())
+
+        cross_val_L2_ivar = tmp['L2_ivar']
+        cross_val_train_size = tmp['train_size']
+
     logger.info(f"Neighborhood {worker_id}: "
                 f"Best L2_ivar, train_size = {cross_val_L2_ivar}, "
                 f"{cross_val_train_size}\n"
@@ -130,18 +145,17 @@ def worker(task):
               'parallax_zpt': conf.parallax_zpt}
 
     # Optimize over full training set to determine parameters for this stoop
-    train_data = data[train_mask[:cross_val_train_size]]
-    joa = Joaquin.from_data(conf, train_data, frozen=frozen)
+    global_train_data = data[:cross_val_train_size]
+    joa = Joaquin.from_data(conf, global_train_data, frozen=frozen)
     init = joa.init(parallax_zpt=frozen['parallax_zpt'],
                     pack=False)
     res = joa.optimize(init=init,
                        options={'maxiter': conf.optimize_train_maxiter})
+    logger.debug(f"Neighborhood {worker_id}: Optimize result \n{res}")
 
     fit_pars = joa.unpack_pars(res.x)
     with open(cache_path / 'fit_pars.pkl', 'wb') as f:
         pickle.dump(fit_pars, f)
-
-    logger.debug(f"Neighborhood {worker_id}: Optimize result \n{res}")
 
     for key in ['phot', 'lsf', 'spec']:
         fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
@@ -191,7 +205,7 @@ def worker(task):
     fig, axes = plt.subplots(2, 2, figsize=(10, 10),
                              sharex=True, sharey=True)
 
-    stars = train_data.stars
+    stars = global_train_data.stars
     stars['H_W2'] = stars['H'] - stars['w2mpro']
     pred_plx = joa.model_y(joa.X, **fit_pars)
 
@@ -222,19 +236,63 @@ def worker(task):
 
     ##########################################################################
     # Validation:
+
+    # for plotting...
+    color_by_data = {k: [] for k in ['LOGG', 'TEFF', 'M_H', 'ruwe']}
+    k_plxs = []
+    k_pred_plxs = []
+
     # Now do K-fold train/test splits again to validate
     # TODO: should this be a different K than we use for cross-validation?
-    for k, (train_joa, test_joa) in enumerate(Kfold_train_test_split(
-            conf, data, K=conf.Kfold_K, rng=rng,
-            train_mask=train_mask[:cross_val_train_size],
-            Joaquin_kwargs=dict(frozen=frozen))):
+    train_idxs, test_idxs = get_Kfold_indices(
+        conf.Kfold_K, np.arange(len(global_train_data), dtype=int), rng=rng)
 
+    for k, (train_idx, test_idx) in enumerate(zip(train_idxs, test_idxs)):
+        train_joa = Joaquin.from_data(conf, global_train_data[train_idx],
+                                      frozen=frozen)
+
+        test_data = global_train_data[test_idx]
+        test_joa = Joaquin.from_data(conf, test_data,
+                                     frozen=frozen)
         k_res = train_joa.optimize(
             init=fit_pars, options={'maxiter': conf.Kfold_test_maxiter})
+        k_fit_pars = joa.unpack_pars(k_res.x)
 
-        k_fit_pars = joa.unpack_pars(res.x)
+        k_plxs.append(test_joa.y + k_fit_pars['parallax_zpt'])
+        k_pred_plxs.append(test_joa.model_y(test_joa.X, **k_fit_pars))
 
-        # TODO: do stuff
+        for name in color_by_data:
+            color_by_data[name] = np.append(color_by_data[name],
+                                            test_data.stars[name])
+
+    # ---
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10),
+                             sharex=True, sharey=True)
+
+    xlim = (-0.5, joa.y.max() + 0.1)
+    for ax, color_by in zip(axes.flat, color_by_data.keys()):
+        c = color_by_data[color_by]
+        ax.scatter(k_plxs, k_pred_plxs,
+                   c=c,
+                   marker='o', s=2, alpha=0.75)
+        ax.set_title(color_by)
+
+        _grid = np.linspace(*xlim, 128)
+        ax.plot(_grid, _grid, marker='', zorder=-10,
+                color='tab:green', alpha=0.4)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ax.get_xlim())
+
+    for ax in axes[-1]:
+        ax.set_xlabel('Gaia parallax')
+    for ax in axes[:, 0]:
+        ax.set_ylabel('Joaquin parallax')
+
+    fig.tight_layout()
+    fig.savefig(plot_path / 'testing_plx_vs_plx.png', dpi=200)
+    plt.close(fig)
 
 
 def run_pipeline(config_file, pool, neighborhood_index=None):

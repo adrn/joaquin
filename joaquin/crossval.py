@@ -88,6 +88,7 @@ def Kfold_train_test_split(config, data, K, Joaquin_kwargs=None, **kwargs):
         Passed to ``get_Kfold_indices()``, like ``train_mask`` and
         ``block_size``.
     """
+    kwargs.setdefault('train_mask', np.arange(len(data)))
     train_idxs, test_idxs = get_Kfold_indices(K=K, **kwargs)
 
     if Joaquin_kwargs is None:
