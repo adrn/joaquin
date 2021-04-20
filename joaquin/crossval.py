@@ -1,5 +1,8 @@
 import numpy as np
 
+# Joaquin
+from .joaquin import Joaquin
+
 
 def get_Kfold_indices(K, train_mask, block_size=None, rng=None):
     """Split indices in the training sample into train and test batches.
@@ -70,3 +73,47 @@ def get_Kfold_indices(K, train_mask, block_size=None, rng=None):
         for i in range(len(train_batches))]) == len(train_idx))
 
     return train_batches, test_batches
+
+
+def Kfold_train_test_split(config, data, K, **kwargs):
+    """Generate K train/test data subsets using ``get_Kfold_indices()``
+
+    Parameters
+    ----------
+    config : `joaquin.config.Config`
+    data : `joaquin.data.JoaquinData`
+    K : int
+        The number of K-fold batches.
+    **kwargs
+        Passed to ``get_Kfold_indices()``, like ``train_mask`` and
+        ``block_size``.
+    """
+    train_idxs, test_idxs = get_Kfold_indices(K=K, **kwargs)
+
+    for k in range(K):
+        train_idx = train_idxs[k]
+        test_idx = test_idxs[k]
+
+        test_block = data[test_idx]
+        test_X, _ = test_block.get_X(phot_names=config.phot_names)
+        test_y = test_block.stars['parallax']
+        test_y_ivar = 1 / test_block.stars['parallax_error'] ** 2
+
+        train_block = data[train_idx]
+        train_X, idx_map = train_block.get_X(phot_names=config.phot_names)
+        train_y = train_block.stars['parallax']
+        train_y_ivar = 1 / train_block.stars['parallax_error'] ** 2
+
+        train_joa = Joaquin(
+            train_X,
+            train_y,
+            train_y_ivar,
+            idx_map)
+
+        test_joa = Joaquin(
+            test_X,
+            test_y,
+            test_y_ivar,
+            idx_map)
+
+        yield train_joa, test_joa

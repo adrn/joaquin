@@ -12,7 +12,7 @@ from joaquin.data import JoaquinData
 from joaquin.config import Config
 from joaquin.logger import logger
 from joaquin.plot import phot_to_label
-from joaquin.crossval import get_Kfold_indices
+from joaquin.crossval import Kfold_train_test_split
 
 
 def worker(task):
@@ -66,7 +66,7 @@ def worker(task):
     # Cross-validate L2_ivar and training area size:
     data = lowpass_data
     train_mask = np.argwhere(
-        lowpass_data.stars['parallax_error'] < 0.1  # TODO: hard-coded
+        data.stars['parallax_error'] < 0.1  # TODO: hard-coded
     ).ravel()
     L2_ivar_vals = 10 ** np.arange(0., 5+1, 0.5)  # TODO: hard-coded
     train_sizes = np.array([4096, 8192, 16384, 32768])  # TODO: hard-coded
@@ -77,38 +77,10 @@ def worker(task):
                        np.nan)
 
     for i, train_size in enumerate(train_sizes):
-        train_idxs, test_idxs = get_Kfold_indices(
-            K=conf.Kfold_K,
-            train_mask=train_mask[:train_size],
-            block_size=conf.block_size,
-            rng=rng
-        )
 
-        for k in np.arange(conf.Kfold_K):
-            train_idx = train_idxs[k]
-            test_idx = test_idxs[k]
-
-            test_block = data[test_idx]
-            test_X, _ = test_block.get_X(phot_names=conf.phot_names)
-            test_y = test_block.stars['parallax']
-            test_y_ivar = 1 / test_block.stars['parallax_error'] ** 2
-
-            train_block = data[train_idx]
-            train_X, idx_map = train_block.get_X(phot_names=conf.phot_names)
-            train_y = train_block.stars['parallax']
-            train_y_ivar = 1 / train_block.stars['parallax_error'] ** 2
-
-            train_joa = Joaquin(
-                train_X,
-                train_y,
-                train_y_ivar,
-                idx_map)
-
-            test_joa = Joaquin(
-                test_X,
-                test_y,
-                test_y_ivar,
-                idx_map)
+        for k, (train_joa, test_joa) in enumerate(Kfold_train_test_split(
+                conf, data, K=conf.Kfold_K,
+                train_mask=train_mask[:train_size], rng=rng)):
 
             for j, L2_ivar in enumerate(L2_ivar_vals):
                 frozen = {'L2_ivar': L2_ivar,
