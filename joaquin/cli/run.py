@@ -98,7 +98,7 @@ def worker(task):
             train_y = train_block.stars['parallax']
             train_y_ivar = 1 / train_block.stars['parallax_error'] ** 2
 
-            joa = Joaquin(
+            train_joa = Joaquin(
                 train_X,
                 train_y,
                 train_y_ivar,
@@ -114,12 +114,12 @@ def worker(task):
                 frozen = {'L2_ivar': L2_ivar,
                           'parallax_zpt': conf.parallax_zpt}
 
-                init_beta = joa.init_beta(**frozen)
+                init_beta = train_joa.init_beta(**frozen)
 
                 test_lls[i, k, j] = test_joa.ln_likelihood(beta=init_beta,
                                                            **frozen)[0]
-                train_lls[i, k, j] = joa.ln_likelihood(beta=init_beta,
-                                                       **frozen)[0]
+                train_lls[i, k, j] = train_joa.ln_likelihood(beta=init_beta,
+                                                             **frozen)[0]
 
     # Mean (could sum here) the cross-validation scores
     train_ll = np.mean(train_lls, axis=1)
@@ -156,6 +156,9 @@ def worker(task):
 
     frozen = {'L2_ivar': cross_val_L2_ivar,
               'parallax_zpt': conf.parallax_zpt}
+
+    # TODO: now K-fold train/test splits again: maybe again K=4, where we test
+    # on 1/4 of the full training set, successively??
 
     train_data = data[train_mask[:cross_val_train_size]]
     train_X, idx_map = train_data.get_X(phot_names=conf.phot_names)
