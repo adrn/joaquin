@@ -17,7 +17,18 @@ from joaquin.crossval import Kfold_train_test_split, get_Kfold_indices
 
 
 def worker(task):
-    worker_id, conf, data, root_plot_path, seed = task
+    worker_id, conf, idx, root_plot_path, seed = task
+
+    # Some horrifying code below because h5py needs indices to be in order,
+    # but we care about the original order of `idx`
+    idx_idx = np.arange(len(idx), dtype=int)
+
+    logger.debug("Loading subsection of parent sample cache file...")
+    idx_argsort = idx.argsort()
+    data = JoaquinData.read(conf.parent_sample_cache_file,
+                            idx=idx[idx_argsort])
+    data = data[idx_idx[idx_argsort].argsort()]
+    logger.debug("Data loaded...")
 
     rng = np.random.default_rng(seed)
 
@@ -69,6 +80,8 @@ def worker(task):
     crossval_file = cache_path / 'crossval_best.yml'
 
     if not crossval_file.exists():
+        logger.debug("Cross-validation parameter cache not found..."
+                     "starting cross-validation")
         L2_ivar_vals = 10 ** np.arange(0., 5+1, 0.5)  # TODO: hard-coded
         train_sizes = np.array([4096, 8192, 16384, 32768])  # TODO: hard-coded
 
@@ -84,6 +97,10 @@ def worker(task):
                     block_size=conf.block_size, rng=rng)):
 
                 for j, L2_ivar in enumerate(L2_ivar_vals):
+                    logger.log(
+                        1,
+                        f"{i}/{len(train_sizes)} -- {k}/{conf.Kfold_K} -- "
+                        f"{j}/{len(L2_ivar_vals)}")
                     frozen = {'L2_ivar': L2_ivar,
                               'parallax_zpt': conf.parallax_zpt}
 
@@ -93,6 +110,8 @@ def worker(task):
                                                                **frozen)[0]
                     train_lls[i, k, j] = train_joa.ln_likelihood(beta=init_beta,
                                                                  **frozen)[0]
+
+        logger.debug("Cross-validation done - plotting results...")
 
         # Mean (could sum here) the cross-validation scores
         train_ll = np.mean(train_lls, axis=1)
@@ -125,11 +144,12 @@ def worker(task):
 
         with open(crossval_file, 'w') as f:
             f.write(yaml.dump({
-                'L2_ivar': cross_val_L2_ivar,
-                'train_size': cross_val_train_size
+                'L2_ivar': float(cross_val_L2_ivar),
+                'train_size': int(cross_val_train_size)
             }))
 
     else:
+        logger.debug("Cross-validation parameter cache found")
         with open(crossval_file, 'r') as f:
             tmp = yaml.safe_load(f.read())
 
@@ -295,41 +315,6 @@ def worker(task):
     plt.close(fig)
 
 
-def run_pipeline(config_file, pool, neighborhood_index=None):
-    conf = Config(config_file)
-
-    plot_path = conf.plot_path / 'pipeline'
-    plot_path.mkdir(exist_ok=True)
-
-    logger.debug("Loading parent sample cache file...")
-    parent = JoaquinData.read(conf.parent_sample_cache_file)
-
-    logger.debug("Parent sample cache file loaded - selecting finite data...")
-    parent = parent[np.all(np.isfinite(parent.X), axis=1)]
-
-    # Load all parent sample neighborhood indices:
-    # (generated in 2-Neighborhoods-PCA.ipynb)
-    logger.debug("Loading neighborhood index file...")
-    neighborhood_indices = np.load(conf.neighborhood_index_file)
-    stoop_ids = np.arange(len(neighborhood_indices))
-
-    if neighborhood_index is not None:
-        neighborhood_indices = [neighborhood_indices[neighborhood_index]]
-        stoop_ids = [neighborhood_index]
-
-    tasks = [
-        (stoop_ids[i], conf, parent[neighborhood_indices[i]], plot_path)
-        for i in range(len(neighborhood_indices))]
-
-    seedseq = np.random.SeedSequence(conf.seed)
-    seeds = seedseq.spawn(len(tasks))
-    tasks = [tuple(t) + (s,) for t, s in zip(tasks, seeds)]
-
-    logger.info(f'Done preparing tasks: {len(tasks)} neighborhoods to process')
-    for r in pool.map(worker, tasks):
-        pass
-
-
 def plot_max_neighborhood_by_rank(data):
     fig, axes = plt.subplots(1, 2, figsize=(11, 5),
                              sharex=True,
@@ -374,13 +359,14 @@ def plot_max_neighborhood_by_rank(data):
     return fig
 
 
-def plot_2D_mean_diff(data):
+def plot_2D_mean_diff(data, downsample=2):
     tmp, _ = data.get_X('spec')
 
     fig, ax = plt.subplots(figsize=(10, 10 * tmp.shape[0] / tmp.shape[1]))
 
     diff = tmp[data.stars['LOGG'].argsort()] - np.median(tmp, axis=0)
-    ax.imshow(diff, origin='lower',
+    ax.imshow(diff[::downsample, ::downsample],
+              origin='lower',
               vmin=np.percentile(diff.ravel(), 1),
               vmax=np.percentile(diff.ravel(), 99),
               cmap='RdBu')
@@ -393,3 +379,32 @@ def plot_2D_mean_diff(data):
 
     fig.tight_layout()
     return fig
+
+
+def run_pipeline(config_file, pool, neighborhood_index=None):
+    conf = Config(config_file)
+
+    plot_path = conf.plot_path / 'pipeline'
+    plot_path.mkdir(exist_ok=True)
+
+    # Load all parent sample neighborhood indices:
+    # (generated in 2-Neighborhoods-PCA.ipynb)
+    logger.debug("Loading neighborhood index file...")
+    neighborhood_indices = np.load(conf.neighborhood_index_file)
+    stoop_ids = np.arange(len(neighborhood_indices))
+
+    if neighborhood_index is not None:
+        neighborhood_indices = [neighborhood_indices[neighborhood_index]]
+        stoop_ids = [neighborhood_index]
+
+    tasks = [
+        (stoop_ids[i], conf, neighborhood_indices[i], plot_path)
+        for i in range(len(neighborhood_indices))]
+
+    seedseq = np.random.SeedSequence(conf.seed)
+    seeds = seedseq.spawn(len(tasks))
+    tasks = [tuple(t) + (s,) for t, s in zip(tasks, seeds)]
+
+    logger.info(f'Done preparing tasks: {len(tasks)} neighborhoods to process')
+    for r in pool.map(worker, tasks):
+        pass
