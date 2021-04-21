@@ -65,8 +65,8 @@ def get_Kfold_indices(K, train_mask, block_size=None, rng=None):
         train_batch = np.concatenate(
             (block_idx[~np.isin(block_idx, test_batch)], zone2_idx))
 
-        test_batches.append(test_batch)
-        train_batches.append(train_batch)
+        test_batches.append(test_batch.astype(int))
+        train_batches.append(train_batch.astype(int))
 
     assert np.all(np.array([
         len(train_batches[i]) + len(test_batches[i])
