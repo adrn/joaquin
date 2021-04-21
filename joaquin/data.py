@@ -6,6 +6,7 @@ import astropy.table as at
 import h5py
 import numpy as np
 from sklearn.decomposition import PCA
+import tables as tb
 from tqdm.auto import trange
 
 # Joaquin
@@ -126,23 +127,43 @@ class JoaquinData:
         return obj
 
     @classmethod
-    def read(cls, cache_file):
-        # TODO: add "idx" option, to only read a block using pytables
+    def read(cls, cache_file, idx=None):
+        """Read data from a previously generated and cached instance.
+
+        Parameters
+        ----------
+        cache_file : path-like
+        idx : array-like, optional
+        """
         cache_file = cls._parse_cache_file(cache_file)
 
         data = {}
+
+        if idx is not None:
+            # This is faster and more memory efficient than using h5py, which
+            # has to load the full data table before doing fancy indexing!
+            with tb.open_file(cache_file, mode='r') as f:
+                tbldata = {}
+                for i, name in enumerate(f.root['stars'].colnames):
+                    tbldata[name] = f.root['stars'].read_coordinates(idx,
+                                                                     field=name)
+            data['stars'] = at.Table(tbldata)
+
+        else:
+            idx = ()
+
         with h5py.File(cache_file, 'r') as f:
-            for k in ['X', 'spec_wvln', 'spec_bad_masks']:
-                if k in f.keys():
-                    data[k] = f[k][:]
-                else:
-                    logger.debug(f"Did not find dataset '{k}' in cache file")
+            for k in ['X', 'spec_bad_masks']:
+                data[k] = f[k][idx]
+
+            data['spec_wvln'] = f['spec_wvln'][:]
 
             data['idx_map'] = {}
             for k in f['idx_map'].keys():
                 data['idx_map'][k] = f['idx_map'][k][:]
 
-            data['stars'] = at.Table.read(f['stars'])
+            if 'stars' not in data:  # idx was None
+                data['stars'] = at.Table.read(f['stars'])
 
             data['phot_names'] = np.array(f.attrs['phot_names']).astype(str)
 
