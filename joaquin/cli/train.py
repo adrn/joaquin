@@ -381,7 +381,7 @@ def plot_2D_mean_diff(data, downsample=2):
     return fig
 
 
-def run_pipeline(config_file, pool, neighborhood_index=None):
+def run_training(config_file, pool, neighborhood_index=None):
     conf = Config(config_file)
 
     plot_path = conf.plot_path / 'pipeline'

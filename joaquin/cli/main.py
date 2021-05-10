@@ -40,9 +40,9 @@ class CLI:
     #     args = parser.parse_args(sys.argv[2:])
     #     make_neighborhoods(args.config_file)
 
-    def run(self):
+    def train(self):
         """Run Joaquin on the pre-generated neighborhoods"""
-        from .run import run_pipeline
+        from .train import run_training
 
         parser = get_parser(
             description=(
@@ -52,7 +52,7 @@ class CLI:
             loggers=[logger])
 
         # HACK
-        parser.usage = 'joaquin run' + parser.format_usage()[14:]
+        parser.usage = 'joaquin train' + parser.format_usage()[14:]
 
         parser.add_argument("-i", "--index", dest="neighborhood_index",
                             default=None, type=int,
