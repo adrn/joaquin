@@ -1,5 +1,7 @@
 # Joaquin
 
+**This project is somewhat deprecated / abandoned. See [schlummernd](https://github.com/adrn/local-linear-lvm-xp) for a more recent implementation**
+
 Stellar model-free spectrophotometric parallaxes.
 
 Currently only works for APOGEE data files and directory structures, but can be
